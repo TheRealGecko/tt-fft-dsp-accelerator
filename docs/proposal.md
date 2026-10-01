@@ -2,11 +2,6 @@
 
 **Statement of purpose**: We’re making a FFT DSP accelerator, which offloads heavy fourier transform math from the main processor, and does the math more efficiently than software. This specific implementation can be used for an accelerometer, turning g-forces over time to vibration frequency data. 
 
----
-
-## System Diagram
-[img]
-
 ## Specifications
 - **Clock Freq.**: 20 MHz 
 - **Latency**: ~3.55 μs
@@ -16,7 +11,10 @@
 - **Input data width**: 8 bits
 - **Axes Processed**: 3 (x, y, z)
 
-## Tables
+## System Diagram
+![System diagram](./system_diagram.png)
+
+## I/O Pins
 
 | Pin No. | ui_in | ui_out | uio |
 |----------|--------|--------|--------|
