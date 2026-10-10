@@ -45,7 +45,7 @@
 | Date | Task |
 |----------|--------|
 | Oct 1-4 | <ul><li>Start sample buffer & parallel bus interface</li></ul> |
-| Oct 5-11 | <ul><li>Finish sample buffer</li><li>Continue parallel bus</li><li>Start twiddle ROM & command decoder</li></ul> |
+| Oct 5-11 | <ul><li>Finish sample buffer</li><li>Continue parallel bus</li><li>Start twiddle ROM</li></ul> |
 | Oct 12-18 | <ul><li>Finish twiddle ROM & parallel bus</li><li>Start butterfly unit, result registers & control FSM</li></ul> |
 | Oct 31-Nov 5 | <ul><li>Finish butterfly unit & result registers</li><li>Start magnitude block</li><li>Continue control FSM</li></ul> |
 | Nov 6-12 | <ul><li>Finish magnitude & control FSM</li><li>Integrate all modules</li></ul> |
