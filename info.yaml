@@ -1,9 +1,9 @@
 # Tiny Tapeout project information
 project:
-  title:        ""      # Project title
-  author:       ""      # Your name
+  title:        "tt-fft-dsp-accelerator"      # Project title
+  author:       "Eva Siao, Fatma Jadoon"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  ""      # One line description of what your project does
+  description:  "An 8-point FFT DSP accelerator designed for processing accelerometer data"      # One line description of what your project does
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
   clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
 
@@ -23,9 +23,9 @@ project:
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
 pinout:
   # Inputs
-  ui[0]: ""
-  ui[1]: ""
-  ui[2]: ""
+  ui[0]: "wr_strobe"
+  ui[1]: "cmd_sel"
+  ui[2]: "rd_strobe"
   ui[3]: ""
   ui[4]: ""
   ui[5]: ""
@@ -33,24 +33,24 @@ pinout:
   ui[7]: ""
 
   # Outputs
-  uo[0]: ""
-  uo[1]: ""
-  uo[2]: ""
+  uo[0]: "busy"
+  uo[1]: "done"
+  uo[2]: "overflow"
   uo[3]: ""
-  uo[4]: ""
-  uo[5]: ""
-  uo[6]: ""
-  uo[7]: ""
+  uo[4]: "peak_bin[0]"
+  uo[5]: "peak_bin[1]"
+  uo[6]: "peak_bin[2]"
+  uo[7]: "peak_bin[3]"
 
   # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
-  uio[4]: ""
-  uio[5]: ""
-  uio[6]: ""
-  uio[7]: ""
+  uio[0]: "data[0]"
+  uio[1]: "data[1]"
+  uio[2]: "data[2]"
+  uio[3]: "data[3]"
+  uio[4]: "data[4]"
+  uio[5]: "data[5]"
+  uio[6]: "data[6]"
+  uio[7]: "data[7]"
 
 # Do not change!
 yaml_version: 6
