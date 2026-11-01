@@ -7,8 +7,8 @@
 
 module twiddle_rom (
     // Butterfly unit wires
-    output wire [7:0] twiddle_factor_real,
-    output wire [7:0] twiddle_factor_imag,
+    output signed wire [7:0] twiddle_factor_real,
+    output signed wire [7:0] twiddle_factor_imag,
 
     // Control FSM wires 
     input wire [1:0] twiddle_index
@@ -22,34 +22,34 @@ module twiddle_rom (
 endmodule
 
 // Implementation of lookup table for twiddle factor
-// Twiddle factors stored in Q2.6 format (2 integer bits, 6 fraction bits)
+// Twiddle factors stored in Q3.5 format (3 integer bits, 5 fraction bits)
 module twiddle_factor_sel_mux(
     input wire [1:0] twiddle_index,
-    output reg [7:0] twiddle_factor_real,
-    output reg [7:0] twiddle_factor_imag
+    output signed reg [7:0] twiddle_factor_real,
+    output signed reg [7:0] twiddle_factor_imag
 );
 always @(*)
 begin
     case(twiddle_index)
         2'b00: begin
-            twiddle_factor_real = 8'b01_000000; // 1
-            twiddle_factor_imag = 8'b00_000000; // 0
+            twiddle_factor_real = 8'b001_00000; // 1
+            twiddle_factor_imag = 8'b000_00000; // 0
         end
         2'b01: begin
-            twiddle_factor_real = 8'b00_101101; // ~ sqrt(2)/2
-            twiddle_factor_imag = 8'b11_010011; // ~ -sqrt(2)/2
+            twiddle_factor_real = 8'b000_10111; // ~ sqrt(2)/2
+            twiddle_factor_imag = 8'b111_01001; // ~ -sqrt(2)/2
         end
         2'b10: begin
-            twiddle_factor_real = 8'b00_000000; // 0
-            twiddle_factor_imag = 8'b11_000000; // -1
+            twiddle_factor_real = 8'b000_00000; // 0
+            twiddle_factor_imag = 8'b111_00000; // -1
         end
         2'b11: begin
-            twiddle_factor_real = 8'b11_010011; // ~ -sqrt(2)/2
-            twiddle_factor_imag = 8'b11_010011; // ~ -sqrt(2)/2
+            twiddle_factor_real = 8'b111_01001; // ~ -sqrt(2)/2
+            twiddle_factor_imag = 8'b111_01001; // ~ -sqrt(2)/2
         end
         default: begin
-            twiddle_factor_real = 8'b01_000000; // 1
-            twiddle_factor_imag = 8'b00_000000; // 0
+            twiddle_factor_real = 8'b000_00000; // 0
+            twiddle_factor_imag = 8'b000_00000; // 0
         end
     endcase
 end

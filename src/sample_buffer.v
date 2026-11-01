@@ -8,7 +8,7 @@
 module sample_buffer (
     // Parallel bus interface wires
     input wire wr_en,
-    input wire [7:0] data,
+    input signed wire [7:0] data,
     input wire [2:0] wr_addr,
 
     // Magnitude block wires
@@ -16,14 +16,14 @@ module sample_buffer (
     output wire [7:0] buff_imag,
 
     // Butterfly unit wires
-    input wire [7:0] out_1_real,
-    input wire [7:0] out_1_imag,
-    input wire [7:0] out_2_real,
-    input wire [7:0] out_2_imag, 
-    output wire [7:0] in_1_real,  
-    output wire [7:0] in_1_imag,
-    output wire [7:0] in_2_real,  
-    output wire [7:0] in_2_imag, 
+    input signed wire [7:0] out_1_real,
+    input signed wire [7:0] out_1_imag,
+    input signed wire [7:0] out_2_real,
+    input signed wire [7:0] out_2_imag, 
+    output signed wire [7:0] in_1_real,  
+    output signed wire [7:0] in_1_imag,
+    output signed wire [7:0] in_2_real,  
+    output signed wire [7:0] in_2_imag, 
 
     // Control FSM wires 
     input wire [1:0] stage,
@@ -33,8 +33,8 @@ module sample_buffer (
     input wire rst_n
 );
     // Sample registers
-    reg[7:0] samples_real [0:7];
-    reg[7:0] samples_imag [0:7];
+    reg signed [7:0] samples_real [0:7];
+    reg signed [7:0] samples_imag [0:7];
     reg [2:0] sample_cnt; // Counts the samples read from data
 
     // Regs for magnitude interfacing 
