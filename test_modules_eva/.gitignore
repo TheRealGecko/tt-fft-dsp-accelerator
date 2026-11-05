@@ -1,0 +1,6 @@
+/verilator
+/sim_build_bus_interface
+/__pycache__
+results.xml
+bus_interface.v
+result_reg.v
