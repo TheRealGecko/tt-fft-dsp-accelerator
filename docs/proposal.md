@@ -46,10 +46,10 @@
 |----------|--------|
 | Oct 1-4 | <ul><li>Start sample buffer & parallel bus interface</li></ul> |
 | Oct 5-11 | <ul><li>Finish sample buffer</li><li>Continue parallel bus</li><li>Start twiddle ROM</li></ul> |
-| Oct 12-18 | <ul><li>Finish twiddle ROM & parallel bus</li><li>Start butterfly unit, result registers & control FSM</li></ul> |
-| Oct 31-Nov 5 | <ul><li>Finish butterfly unit & result registers</li><li>Start magnitude block</li><li>Continue control FSM</li></ul> |
-| Nov 6-12 | <ul><li>Finish magnitude & control FSM</li><li>Integrate all modules</li></ul> |
-| Nov 13-23 | <ul><li>Configure RP</li><li>Debug integration, arithmetic & sequencing</li></ul> |
+| Oct 12-18 | <ul><li>Finish twiddle ROM & parallel bus</li><li>Start butterfly unit & control FSM</li></ul> |
+| Oct 31-Nov 5 | <ul><li>Finish butterfly unit</li><li>Start and finish magnitude block</li><li>Continue control FSM</li></ul> |
+| Nov 6-12 | <ul><li>Finish control FSM</li><li>Start and finish result registers</li></ul> |
+| Nov 13-23 | <ul><li>Integrate all modules</li><li>Configure RP</li><li>Debug integration, arithmetic & sequencing</li></ul> |
 | Nov 24-27 | <ul><li>Verify output values & commands</li><li>Debug for edge cases (overflow, negative inputs, etc)</li></ul> |
 | Nov 28-30 | <ul><li>Fix remaining datapath/control issues</li><li>Write documentation</li></ul> |
 | Dec 1-3 | <ul><li>Review documentation</li><li>Submit</li></ul> |
