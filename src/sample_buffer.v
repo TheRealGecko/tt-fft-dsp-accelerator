@@ -8,7 +8,7 @@
 module sample_buffer (
     // Parallel bus interface wires
     input wire wr_en,
-    input signed wire [7:0] data,
+    input signed [7:0] data,
     input wire [2:0] wr_addr,
 
     // Magnitude block wires
@@ -16,14 +16,14 @@ module sample_buffer (
     output wire [7:0] buff_imag,
 
     // Butterfly unit wires
-    input signed wire [7:0] out_1_real,
-    input signed wire [7:0] out_1_imag,
-    input signed wire [7:0] out_2_real,
-    input signed wire [7:0] out_2_imag, 
-    output signed wire [7:0] in_1_real,  
-    output signed wire [7:0] in_1_imag,
-    output signed wire [7:0] in_2_real,  
-    output signed wire [7:0] in_2_imag, 
+    input signed [7:0] out_1_real,
+    input signed [7:0] out_1_imag,
+    input signed [7:0] out_2_real,
+    input signed [7:0] out_2_imag, 
+    output signed [7:0] in_1_real,  
+    output signed [7:0] in_1_imag,
+    output signed [7:0] in_2_real,  
+    output signed [7:0] in_2_imag, 
 
     // Control FSM wires 
     input wire [1:0] stage,
@@ -77,15 +77,18 @@ module sample_buffer (
         for(i = 0; i < 3; i++) assign wr_addr_rev[i] = wr_addr[3-i-1];
     endgenerate
 
+    integer j;
     always @(posedge clk or negedge rst_n)
     begin  
         if(!rst_n) // Reset values
         begin
-            sample_cnt = 0;  
-            mag_cnt_en = 0;  
-            buff = 0;
-            run_fft = 0;
-            done_mag_send = 0;
+            for(j = 0; j < 8; j++) samples_real[j] <= 0;
+            for(j = 0; j < 8; j++) samples_imag[j] <= 0;
+            sample_cnt <= 0;  
+            mag_cnt_en <= 0;  
+            buff <= 0;
+            run_fft <= 0;
+            done_mag_send <= 0;
         end else if(clk)
         begin
             // If new sample data is ready to be loaded, store new sample data in samples_real
