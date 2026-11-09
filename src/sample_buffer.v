@@ -12,8 +12,8 @@ module sample_buffer (
     input wire [2:0] wr_addr,
 
     // Magnitude block wires
-    output wire [7:0] buff_real,
-    output wire [7:0] buff_imag,
+    output signed [7:0] buff_real,
+    output signed [7:0] buff_imag,
 
     // Butterfly unit wires
     input signed [7:0] out_1_real,
@@ -28,26 +28,24 @@ module sample_buffer (
     // Control FSM wires 
     input wire [1:0] stage,
     input wire [1:0] butterfly,
-    output reg done_mag_send,
+    input wire start_fft,
+    input wire [2:0] mag_index,
+
+    // Control wires
     input wire clk,
     input wire rst_n
 );
+    // Reg for running fft
+    reg run_fft;
+
     // Sample registers
     reg signed [7:0] samples_real [0:7];
     reg signed [7:0] samples_imag [0:7];
-    reg [2:0] sample_cnt; // Counts the samples read from data
-
-    // Regs for magnitude interfacing 
-    reg mag_cnt_en; // Enable counting up of buf
-    reg [2:0] buff; // 1) Counter for how many samples have been read from Parallel Bus and 2) Buffer index to send to magnitude block
-
-    // Reg for determining whether to run fft
-    reg run_fft;
 
     // Reversed bit address
     wire [2:0] wr_addr_rev;
 
-    // Determine addresses to select butterfly unit inputs
+    // Addresses for butterfly unit inputs
     wire [2:0] addr_1;
     wire [2:0] addr_2;
     addr_1_sel_mux addr_1_mux(
@@ -62,14 +60,14 @@ module sample_buffer (
     );
 
     // Select butterfly unit inputs
-    assign in_1_real[7:0] = samples_real[addr_1];
-    assign in_1_imag[7:0] = samples_imag[addr_1];
-    assign in_2_real[7:0] = samples_real[addr_2];
-    assign in_2_imag[7:0] = samples_imag[addr_2];
+    assign in_1_real = samples_real[addr_1];
+    assign in_1_imag = samples_imag[addr_1];
+    assign in_2_real = samples_real[addr_2];
+    assign in_2_imag = samples_imag[addr_2];
 
     // Select magnitude block inputs
-    assign buff_real[7:0] = samples_real[buff];
-    assign buff_imag[7:0] = samples_imag[buff];
+    assign buff_real = samples_real[mag_index];
+    assign buff_imag = samples_imag[mag_index];
 
     // Reverse bit order of wr_addr
     genvar i;
@@ -84,60 +82,32 @@ module sample_buffer (
         begin
             for(j = 0; j < 8; j++) samples_real[j] <= 0;
             for(j = 0; j < 8; j++) samples_imag[j] <= 0;
-            sample_cnt <= 0;  
-            mag_cnt_en <= 0;  
-            buff <= 0;
             run_fft <= 0;
-            done_mag_send <= 0;
-        end else if(clk)
+        end 
+        else
         begin
-            // If new sample data is ready to be loaded, store new sample data in samples_real
-            if(wr_en)
+            // Run FFT once Control FSM sends start signal
+            if(start_fft)
             begin
-                if(sample_cnt == 7) // If this is the 8th sample to be read, signal that fft is ready to begin and reset counter
-                begin
-                    run_fft <= 1;
-                    sample_cnt <= 0;
-                end else
-                begin
-                    sample_cnt <= sample_cnt + 1; // Increase "samples read" cnt by 1
-                end
+                run_fft <= 1;
+            end
+
+            if(wr_en) // If new sample data is ready to be loaded, store new sample data in samples_real
+            begin
                 // Store data at a reversed bit index
                 samples_real[wr_addr_rev] <= data;
                 samples_imag[wr_addr_rev] <= 0;
             end
-
-            // If the final calculation of the fft has been processed, stop the fft and start sending data to the magnitude block
-            if(run_fft && stage == 2 && butterfly == 3)
-            begin
-                run_fft <= 0;
-                mag_cnt_en <= 1;
-            end
-
-            // Store butterfly unit outputs IF run_fft is true
-            if(run_fft) 
+            else if(run_fft) // Store butterfly unit outputs if run_fft is true
             begin
                 samples_real[addr_1] <= out_1_real;
                 samples_imag[addr_1] <= out_1_imag;
                 samples_real[addr_2] <= out_2_real;
                 samples_imag[addr_2] <= out_2_imag;
+                // If the final calculation of the fft has been processed, stop the fft
+                if(stage == 2 && butterfly == 3)
+                    run_fft <= 0;
             end
-
-            // Buff counter for magnitude block index
-            if(mag_cnt_en)
-            begin
-                if(buff == 7) // If all samples have been sent to magnitude, reset buf and signal to FSM
-                begin 
-                    mag_cnt_en <= 0;
-                    done_mag_send <= 1;
-                    buff <= 0;
-                end else
-                begin
-                    buff <= buff + 1;
-                end
-            end
-
-            if(done_mag_send) done_mag_send <= 0; // Reset done_mag_send
         end
     end
 endmodule
