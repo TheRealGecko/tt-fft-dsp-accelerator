@@ -18,8 +18,8 @@ module mag_block (
     output wire mag_done,
 
     // Control wires
-    input clk,
-    input rst_n
+    input wire clk,
+    input wire rst_n
 );
     localparam [2:0] AWAIT_SAMPLE = 3'b000;
     localparam [2:0] CALC_X2 = 3'b001;
@@ -35,7 +35,7 @@ module mag_block (
     // Squaring datapath
     reg [14:0] x_val; // Stores x first, then x^2
     reg [14:0] y_val; // Stores y first, then y^2
-    wire signed [7:0] square_param;
+    wire signed [14:0] square_param;
     wire [14:0] square_result;
 
     // Sqrt datapath
@@ -72,8 +72,8 @@ module mag_block (
                 begin
                     if(start_mag)
                     begin
-                        x_val <= buff_real;
-                        y_val <= buff_imag;
+                        x_val <= $signed({{7{buff_real[7]}}, buff_real});
+                        y_val <= $signed({{7{buff_imag[7]}}, buff_imag});
                         bit_cnt <= 15;
                         remainder <= 0;
                         root <= 0;
@@ -90,19 +90,30 @@ module mag_block (
                     y_val <= square_result;
                     stage <= SQRT_SETUP;
                 end
+                /*
+                    SQRT ALGORITHM IDEA:
+                    - Try having the next bit of the sqrt (call it 'A') be a 1
+                    - Let B be the bits of the sqrt_operand that we've processed so far
+                    - Check if A^2 > B
+                    - If it is, correct your guess A by making the test next bit 0
+                    - If it isn't, the test bit was right! Keep it as is
+                    - Adjust B to include the next 2 bits of the sqrt_operand, and repeat until you've covered all bits of sqrt_operand
+                */
                 SQRT_SETUP:
                 begin
-                    remainder <= (remainder << 2) + sqrt_operand[bit_cnt -: 2];
+                    remainder <= (remainder << 2) + $signed({15'b0, sqrt_operand[bit_cnt -: 2]});
                     bit_cnt <= (bit_cnt != 1) ? bit_cnt - 2 : 0;
                     stage <= SQRT_CHECK;
                 end
                 SQRT_CHECK:
                 begin
+                    // If 
                     remainder <= (remainder >= 0) ? remainder - (test_root + 17'sd1) : remainder + (test_root + 17'sd3);
                     stage <= SQRT_UPDATE;
                 end
                 SQRT_UPDATE:
                 begin
+                    // If enough remainder is left to increase the sqrt, set the next bit of the root to 1, otherwise set to 0
                     root <= (remainder >= 0) ? (root << 1) + 1 : root << 1;
                     stage <= (bit_cnt == 0) ? RETURN_RESULT : SQRT_SETUP;
                 end
