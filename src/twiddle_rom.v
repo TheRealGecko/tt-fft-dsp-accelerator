@@ -7,10 +7,10 @@
 
 module twiddle_rom (
     // Butterfly unit wires
-    output signed wire [7:0] twiddle_factor_real,
-    output signed wire [7:0] twiddle_factor_imag,
+    output wire signed [7:0] twiddle_factor_real,
+    output wire signed [7:0] twiddle_factor_imag,
 
-    // Control FSM wires 
+    // Control FSM wires
     input wire [1:0] twiddle_index
 );
     // Lookup table for twiddle factor

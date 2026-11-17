@@ -15,8 +15,9 @@ COCOTB_HDL_TIMEPRECISION = 1ps
 
 # Verilator is strict: don't let lint warnings abort the build
 EXTRA_ARGS += -Wno-fatal --timing
-ifeq ($(WAVES),1)
-EXTRA_ARGS += --trace-fst --trace-structs
+
+ifeq ($(VERILATOR_TRACE),1)
+EXTRA_ARGS += --trace-fst
 endif
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
