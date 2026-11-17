@@ -17,9 +17,7 @@ module butterfly_unit (
     output signed [7:0] out_2_imag,
 
     // Twiddle ROM wires
-    input wire [1:0] twiddle_index,
-    input signed [7:0] twiddle_factor_real,
-    input signed [7:0] twiddle_factor_imag
+    input wire [1:0] twiddle_index
 );
     // ----------------------------
     // Calculate butterfly unit
