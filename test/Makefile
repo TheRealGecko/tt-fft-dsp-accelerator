@@ -7,6 +7,12 @@ FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
 PROJECT_SOURCES = project.v
+PROJECT_SOURCES += bus_interface.v
+PROJECT_SOURCES += control.v
+PROJECT_SOURCES += sample_buffer.v
+PROJECT_SOURCES += butterfly_unit.v
+PROJECT_SOURCES += mag_block.v
+PROJECT_SOURCES += result_reg.v
 
 ifneq ($(GATES),yes)
 
@@ -33,6 +39,9 @@ endif
 
 # Allow sharing configuration between design and testbench via `include`:
 COMPILE_ARGS 		+= -I$(SRC_DIR)
+
+EXTRA_ARGS += --timing
+EXTRA_ARGS += --trace
 
 # Include the testbench sources:
 VERILOG_SOURCES += $(PWD)/tb.v
