@@ -40,8 +40,10 @@ endif
 # Allow sharing configuration between design and testbench via `include`:
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
-EXTRA_ARGS += --timing
-EXTRA_ARGS += --trace
+ifeq ($(SIM),verilator)
+	EXTRA_ARGS += --timing
+	EXTRA_ARGS += --trace
+endif
 
 # Include the testbench sources:
 VERILOG_SOURCES += $(PWD)/tb.v
