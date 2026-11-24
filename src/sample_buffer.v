@@ -53,14 +53,14 @@ module sample_buffer (
     assign read_addr_1 = run_fft ? addr_1 : mag_index;
 
     // Select butterfly unit inputs
-    assign in_1_real = samples_real[read_addr_1];
-    assign in_1_imag = samples_imag[read_addr_1];
+    assign in_1_real = samples_real[addr_1];
+    assign in_1_imag = samples_imag[addr_1];
     assign in_2_real = samples_real[addr_2];
     assign in_2_imag = samples_imag[addr_2];
 
     // Select magnitude block inputs
-    assign buff_real = samples_real[read_addr_1];
-    assign buff_imag = samples_imag[read_addr_1];
+    assign buff_real = samples_real[mag_index];
+    assign buff_imag = samples_imag[mag_index];
 
     // Reverse bit order of wr_addr
     genvar i;
@@ -91,8 +91,8 @@ module sample_buffer (
             end
             else if(run_fft) // Store butterfly unit outputs if run_fft is true
             begin
-                samples_real[read_addr_1] <= out_1_real;
-                samples_imag[read_addr_1] <= out_1_imag;
+                samples_real[addr_1] <= out_1_real;
+                samples_imag[addr_1] <= out_1_imag;
                 samples_real[addr_2] <= out_2_real;
                 samples_imag[addr_2] <= out_2_imag;
                 // If the final calculation of the fft has been processed, stop the fft
