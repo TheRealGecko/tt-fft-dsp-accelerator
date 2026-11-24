@@ -41,12 +41,9 @@ module mag_block (
     reg [7:0] root;
     reg [3:0] bit_cnt;
     reg signed [16:0] remainder;
-    wire signed [16:0] test_root;
     
     assign x_val = buff_real[7] ? -buff_real : buff_real;
     assign y_val = buff_imag[7] ? -buff_imag : buff_imag;
-
-    assign test_root = $signed({7'b0, root, 2'b00});
 
     assign mag_done = (stage == RETURN_RESULT);
     assign magnitude = root;
@@ -118,20 +115,20 @@ module mag_block (
                 */
                 SQRT_SETUP:
                 begin
-                    remainder <= (remainder << 2) + $signed({15'b0, sqrt_operand[bit_cnt -: 2]});
+                    remainder <= (remainder << 2) | {15'b0, sqrt_operand[bit_cnt -: 2]};
                     bit_cnt <= (bit_cnt != 1) ? bit_cnt - 2 : 0;
                     stage <= SQRT_CHECK;
                 end
                 SQRT_CHECK:
                 begin
                     // If 
-                    remainder <= (remainder >= 0) ? remainder - (test_root + 17'sd1) : remainder + (test_root + 17'sd3);
+                    remainder <= (remainder >= 0) ? remainder - {7'b0, root, 2'b01} : remainder + {7'b0, root, 2'b11};
                     stage <= SQRT_UPDATE;
                 end
                 SQRT_UPDATE:
                 begin
                     // If enough remainder is left to increase the sqrt, set the next bit of the root to 1, otherwise set to 0
-                    root <= (remainder >= 0) ? (root << 1) + 1 : root << 1;
+                    root <= (remainder >= 0) ? {root[6:0], 1'b1} : root << 1;
                     stage <= (bit_cnt == 0) ? RETURN_RESULT : SQRT_SETUP;
                 end
                 RETURN_RESULT:
