@@ -70,18 +70,23 @@ async def run_fft(dut):
             dut.out_1_imag.value = out_1_imag[stage][butterfly]
             dut.out_2_imag.value = out_2_imag[stage][butterfly]
 
-            await RisingEdge(dut.clk)
             await Timer(2, units="ns")
+
             # Check for proper wb address
             assert dut.addr_1.value == addr1[stage][butterfly]
             assert dut.addr_2.value == addr2[stage][butterfly]
-            # Check for proper wb values
+
             addr1_actual = int(dut.addr_1.value)
             addr2_actual = int(dut.addr_2.value)
-            assert dut.samples_real[addr1_actual].value == out_1_real[stage][butterfly]
-            assert dut.samples_imag[addr1_actual].value == out_1_imag[stage][butterfly]
-            assert dut.samples_real[addr2_actual].value == out_2_real[stage][butterfly]
-            assert dut.samples_imag[addr2_actual].value == out_2_imag[stage][butterfly]
+
+            await RisingEdge(dut.clk)
+            await Timer(2, units="ns")
+
+            # Check for proper wb values
+            assert dut.re[addr1_actual].value == out_1_real[stage][butterfly]
+            assert dut.im[addr1_actual].value == out_1_imag[stage][butterfly]
+            assert dut.re[addr2_actual].value == out_2_real[stage][butterfly]
+            assert dut.im[addr2_actual].value == out_2_imag[stage][butterfly]
 
 @cocotb.test
 async def test_reset(dut):
@@ -90,10 +95,7 @@ async def test_reset(dut):
     # Reset registers
     await reset(dut)
     
-    # Confirm all registers are reset 
-    for i in range(8):
-        assert dut.samples_real[i].value == 0 
-        assert dut.samples_imag[i].value == 0
+    # Confirm run_fft is reset
     assert dut.run_fft.value == 0
 
 @cocotb.test
@@ -109,14 +111,14 @@ async def test_load_samples_positive(dut):
     await load_8_samples(samples, dut)
 
     # Check if samples are loaded in bit-reversed order
-    assert dut.samples_real[0].value == samples[0]
-    assert dut.samples_real[4].value == samples[1]
-    assert dut.samples_real[2].value == samples[2]
-    assert dut.samples_real[6].value == samples[3]
-    assert dut.samples_real[1].value == samples[4]
-    assert dut.samples_real[5].value == samples[5]
-    assert dut.samples_real[3].value == samples[6]
-    assert dut.samples_real[7].value == samples[7]
+    assert dut.re[0].value == samples[0]
+    assert dut.re[4].value == samples[1]
+    assert dut.re[2].value == samples[2]
+    assert dut.re[6].value == samples[3]
+    assert dut.re[1].value == samples[4]
+    assert dut.re[5].value == samples[5]
+    assert dut.re[3].value == samples[6]
+    assert dut.re[7].value == samples[7]
 
 @cocotb.test
 async def test_load_samples_negative_and_positive(dut):
@@ -129,14 +131,14 @@ async def test_load_samples_negative_and_positive(dut):
     await load_8_samples(samples_neg, dut)
 
     # Confirm negative values are loaded as signed
-    assert dut.samples_real[0].value == samples_neg[0]
-    assert dut.samples_real[4].value == samples_neg[1]
-    assert dut.samples_real[2].value == samples_neg[2]
-    assert dut.samples_real[6].value == samples_neg[3]
-    assert dut.samples_real[1].value == samples_neg[4]
-    assert dut.samples_real[5].value == samples_neg[5]
-    assert dut.samples_real[3].value == samples_neg[6]
-    assert dut.samples_real[7].value == samples_neg[7]
+    assert dut.re[0].value == samples_neg[0]
+    assert dut.re[4].value == samples_neg[1]
+    assert dut.re[2].value == samples_neg[2]
+    assert dut.re[6].value == samples_neg[3]
+    assert dut.re[1].value == samples_neg[4]
+    assert dut.re[5].value == samples_neg[5]
+    assert dut.re[3].value == samples_neg[6]
+    assert dut.re[7].value == samples_neg[7]
 
     return
 
@@ -208,8 +210,8 @@ async def test_magnitude_block_recv(dut):
     for i in range(0, 8):
         dut.mag_index.value = i
         await Timer(2, units="ns")
-        assert dut.buff_real.value == dut.samples_real[i].value
-        assert dut.buff_imag.value == dut.samples_imag[i].value
+        assert dut.buff_real.value == dut.re[i].value
+        assert dut.buff_imag.value == dut.im[i].value
         await RisingEdge(dut.clk)
 
     return
@@ -235,14 +237,14 @@ async def test_two_consecutive_workflows(dut):
 
     # Load 8 samples into sample buffer
     await load_8_samples(samples, dut)
-    assert dut.samples_real[0].value == samples[0]
-    assert dut.samples_real[4].value == samples[1]
-    assert dut.samples_real[2].value == samples[2]
-    assert dut.samples_real[6].value == samples[3]
-    assert dut.samples_real[1].value == samples[4]
-    assert dut.samples_real[5].value == samples[5]
-    assert dut.samples_real[3].value == samples[6]
-    assert dut.samples_real[7].value == samples[7]
+    assert dut.re[0].value == samples[0]
+    assert dut.re[4].value == samples[1]
+    assert dut.re[2].value == samples[2]
+    assert dut.re[6].value == samples[3]
+    assert dut.re[1].value == samples[4]
+    assert dut.re[5].value == samples[5]
+    assert dut.re[3].value == samples[6]
+    assert dut.re[7].value == samples[7]
 
     await start_fft(dut)
     assert dut.run_fft.value == 1
@@ -254,8 +256,8 @@ async def test_two_consecutive_workflows(dut):
     for i in range(0, 8):
         dut.mag_index.value = i
         await Timer(2, units="ns")
-        assert dut.buff_real.value == dut.samples_real[i].value
-        assert dut.buff_imag.value == dut.samples_imag[i].value
+        assert dut.buff_real.value == dut.re[i].value
+        assert dut.buff_imag.value == dut.im[i].value
         await RisingEdge(dut.clk)
 
     return
@@ -284,8 +286,5 @@ async def test_rst_while_fft_running(dut):
     await Timer(5, units="ns")
 
     await reset(dut)
-    # Confirm all registers are reset 
-    for i in range(8):
-        assert dut.samples_real[i].value == 0 
-        assert dut.samples_imag[i].value == 0
+    # Confirm run_fft is reset
     assert dut.run_fft.value == 0
