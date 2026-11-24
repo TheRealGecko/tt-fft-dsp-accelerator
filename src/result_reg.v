@@ -26,7 +26,6 @@ module result_reg (
     reg [7:0] peak_mag;      // largest magnitude seen this run
     reg [2:0] peak_idx;      // bin where it occurred
 
-    integer i;
 
     always @(posedge clk) begin
         if (!rst_n || init) begin

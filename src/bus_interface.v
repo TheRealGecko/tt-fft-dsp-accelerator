@@ -63,7 +63,7 @@ module bus_interface (
     assign peak_bin = {1'b0, peak_bin_index};
     assign data_out = magnitudes;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             busy        <= 0;
             done        <= 0;

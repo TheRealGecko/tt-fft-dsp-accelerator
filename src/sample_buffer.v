@@ -46,11 +46,9 @@ module sample_buffer (
     wire [2:0] wr_addr_rev;
 
     // Addresses for butterfly unit inputs
-    wire [2:0] read_addr_1;
     reg [2:0] addr_1;
     reg [2:0] addr_2;
 
-    assign read_addr_1 = run_fft ? addr_1 : mag_index;
 
     // Select butterfly unit inputs
     assign in_1_real = samples_real[addr_1];
@@ -68,7 +66,6 @@ module sample_buffer (
         for(i = 0; i < 3; i++) assign wr_addr_rev[i] = wr_addr[3-i-1];
     endgenerate
 
-    integer j;
     always @(posedge clk or negedge rst_n)
     begin  
         if(!rst_n) // Reset values
