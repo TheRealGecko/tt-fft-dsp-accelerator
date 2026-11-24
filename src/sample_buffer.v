@@ -47,18 +47,8 @@ module sample_buffer (
 
     // Addresses for butterfly unit inputs
     wire [2:0] read_addr_1;
-    wire [2:0] addr_1;
-    wire [2:0] addr_2;
-    addr_1_sel_mux addr_1_mux(
-        .stage(stage),
-        .butterfly(butterfly),
-        .addr_1(addr_1)
-    );
-    addr_2_sel_mux addr_2_mux(
-        .stage(stage),
-        .butterfly(butterfly),
-        .addr_2(addr_2)
-    );
+    reg [2:0] addr_1;
+    reg [2:0] addr_2;
 
     assign read_addr_1 = run_fft ? addr_1 : mag_index;
 
@@ -111,61 +101,29 @@ module sample_buffer (
             end
         end
     end
-endmodule
 
-// Muxes for addr_1 and addr_2
-module addr_1_sel_mux(
-    input wire [1:0] stage,
-    input wire [1:0] butterfly,
-    output reg [2:0] addr_1
-);
-always @(*)
-begin
-    case({stage, butterfly})
-        4'b00_00: addr_1 = 3'd0;
-        4'b00_01: addr_1 = 3'd2;
-        4'b00_10: addr_1 = 3'd4;
-        4'b00_11: addr_1 = 3'd6;
+    always @(*)
+    begin
+        case(stage)
+            2'b00: begin
+                addr_1 = {butterfly, 1'b0};
+                addr_2 = {butterfly, 1'b1};
+            end
 
-        4'b01_00: addr_1 = 3'd0;
-        4'b01_01: addr_1 = 3'd1;
-        4'b01_10: addr_1 = 3'd4;
-        4'b01_11: addr_1 = 3'd5;
+            2'b01: begin
+                addr_1 = {butterfly[1], 1'b0, butterfly[0]};
+                addr_2 = {butterfly[1], 1'b1, butterfly[0]};
+            end
 
-        4'b10_00: addr_1 = 3'd0;
-        4'b10_01: addr_1 = 3'd1;
-        4'b10_10: addr_1 = 3'd2;
-        4'b10_11: addr_1 = 3'd3;
+            2'b10: begin
+                addr_1 = {1'b0, butterfly};
+                addr_2 = {1'b1, butterfly};
+            end
 
-        default: addr_1 = 3'd0;
-    endcase
-end
-endmodule
-
-module addr_2_sel_mux(
-    input wire [1:0] stage,
-    input wire [1:0] butterfly,
-    output reg [2:0] addr_2 
-);
-always @(*)
-begin
-    case({stage, butterfly})
-        4'b00_00: addr_2 = 3'd1;
-        4'b00_01: addr_2 = 3'd3;
-        4'b00_10: addr_2 = 3'd5;
-        4'b00_11: addr_2 = 3'd7;
-
-        4'b01_00: addr_2 = 3'd2;
-        4'b01_01: addr_2 = 3'd3;
-        4'b01_10: addr_2 = 3'd6;
-        4'b01_11: addr_2 = 3'd7;
-
-        4'b10_00: addr_2 = 3'd4;
-        4'b10_01: addr_2 = 3'd5;
-        4'b10_10: addr_2 = 3'd6;
-        4'b10_11: addr_2 = 3'd7;
-
-        default: addr_2 = 3'd0;
-    endcase
-end
+            default: begin
+                addr_1 = 0;
+                addr_2 = 0;
+            end
+        endcase
+    end
 endmodule

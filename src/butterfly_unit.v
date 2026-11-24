@@ -33,12 +33,17 @@ module butterfly_unit (
     reg signed [14:0] intermediate_term2;
     wire signed [7:0] intermediate_term1_resized;
     wire signed [7:0] intermediate_term2_resized;
-    wire signed [14:0] temp1;
-    wire signed [14:0] temp2;
+    wire signed [8:0] temp1;
+    wire signed [8:0] temp2;
+    wire signed [14:0] temp1_extended;
+    wire signed [14:0] temp2_extended;
 
-    assign temp1 = $signed({{7{in_2_real[7]}}, in_2_real}) + $signed({{7{in_2_imag[7]}}, in_2_imag}); 
-    assign temp2 = $signed({{7{in_2_imag[7]}}, in_2_imag}) - $signed({{7{in_2_real[7]}}, in_2_real}); 
+    assign temp1 = $signed({in_2_real[7], in_2_real}) + $signed({in_2_imag[7], in_2_imag}); 
+    assign temp2 = $signed({in_2_imag[7], in_2_imag}) - $signed({in_2_real[7], in_2_real}); 
     
+    assign temp1_extended = {{6{temp1[8]}}, temp1};
+    assign temp2_extended = {{6{temp2[8]}}, temp2};
+
     assign intermediate_term1_resized = intermediate_term1[7:0];
     assign intermediate_term2_resized = intermediate_term2[7:0];
 
@@ -55,16 +60,16 @@ module butterfly_unit (
                 intermediate_term2 = $signed({{7{in_2_imag[7]}}, in_2_imag}); 
             end
             2'b01: begin
-                intermediate_term1 = ((((temp1) << 5) - (temp1 << 3) - temp1) >>> 5); // (23/32)*(C + D) ~= (sqrt(2)/2)*(C + D)
-                intermediate_term2 = ((((temp2) << 5) - (temp2 << 3) - temp2) >>> 5); // -(23/32)*(C - D) ~= -(sqrt(2)/2)*(C - D)
+                intermediate_term1 = ((((temp1_extended) << 5) - (temp1_extended << 3) - temp1_extended) >>> 5); // (23/32)*(C + D) ~= (sqrt(2)/2)*(C + D)
+                intermediate_term2 = ((((temp2_extended) << 5) - (temp2_extended << 3) - temp2_extended) >>> 5); // -(23/32)*(C - D) ~= -(sqrt(2)/2)*(C - D)
             end
             2'b10: begin
                 intermediate_term1 = $signed({{7{in_2_imag[7]}}, in_2_imag}); 
                 intermediate_term2 = -$signed({{7{in_2_real[7]}}, in_2_real});
             end
             2'b11: begin
-                intermediate_term1 = (((temp2) << 5) - (temp2 << 3) - temp2) >>> 5; 
-                intermediate_term2 = (-(((temp1) << 5) - (temp1 << 3) - temp1)) >>> 5; // Negate before right shift to match butterfly implementation in python ((-x) >>> 5 and -(x >>> 5) are different)
+                intermediate_term1 = (((temp2_extended) << 5) - (temp2_extended << 3) - temp2_extended) >>> 5; 
+                intermediate_term2 = (-(((temp1_extended) << 5) - (temp1_extended << 3) - temp1_extended)) >>> 5; // Negate before right shift to match butterfly implementation in python ((-x) >>> 5 and -(x >>> 5) are different)
             end
             default: begin
                 intermediate_term1 = $signed({{7{in_2_real[7]}}, in_2_real});
