@@ -80,8 +80,6 @@ module sample_buffer (
     begin  
         if(!rst_n) // Reset values
         begin
-            for(j = 0; j < 8; j++) samples_real[j] <= 0;
-            for(j = 0; j < 8; j++) samples_imag[j] <= 0;
             run_fft <= 0;
         end 
         else

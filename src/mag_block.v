@@ -36,7 +36,6 @@ module mag_block (
     reg [15:0] sqrt_operand;
     wire [14:0] x_val;
     wire [14:0] y_val;
-    reg [14:0] square_val;
 
     // Sqrt datapath
     reg [7:0] root;
@@ -60,7 +59,6 @@ module mag_block (
             bit_cnt <= 0;
             remainder <= 0;
             root <= 0;
-            square_val <= 0;
             sqrt_operand <= 0;
         end 
         else
@@ -73,7 +71,6 @@ module mag_block (
                         bit_cnt <= 0;
                         remainder <= 0;
                         root <= 0;
-                        square_val <= 0;
                         sqrt_operand <= 0;
                         stage <= CALC_X2;
                     end
@@ -86,14 +83,12 @@ module mag_block (
                     begin
                         if(x_val[bit_cnt]) 
                         begin
-                            square_val <= square_val + x_val << bit_cnt;
+                            sqrt_operand <= sqrt_operand + x_val << bit_cnt;
                         end
                         bit_cnt <= bit_cnt + 1;
                     end
                     else
                     begin
-                        sqrt_operand <= sqrt_operand + square_val;
-                        square_val <= 0;
                         bit_cnt <= 0;
                         stage <= CALC_Y2;
                     end
@@ -104,14 +99,12 @@ module mag_block (
                     begin
                         if(y_val[bit_cnt])
                         begin
-                            square_val <= square_val + y_val << bit_cnt;
+                            sqrt_operand <= sqrt_operand + y_val << bit_cnt;
                         end
                         bit_cnt <= bit_cnt + 1;
                     end
                     else
                     begin
-                        sqrt_operand <= sqrt_operand + square_val;
-                        square_val <= 0;
                         bit_cnt <= 15;
                         stage <= SQRT_SETUP;
                     end
