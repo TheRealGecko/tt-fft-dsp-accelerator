@@ -36,9 +36,11 @@ module butterfly_unit (
     wire signed [8:0] temp2;
     wire signed [14:0] temp1_extended;
     wire signed [14:0] temp2_extended;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire signed [14:0] scaled_temp1;
     wire signed [14:0] scaled_temp2;
     wire signed [14:0] scaled_temp1_neg;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     assign temp1 = $signed({in_2_real[7], in_2_real}) + $signed({in_2_imag[7], in_2_imag});  
     assign temp2 = $signed({in_2_imag[7], in_2_imag}) - $signed({in_2_real[7], in_2_real}); 
