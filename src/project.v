@@ -16,9 +16,6 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
     input  wire       rst_n
 );
 
-  // 0: combinational mag_block (alpha-max-beta-min)
-  // 1: iterative mag_block (exact sqrt, host must wait after reads)
-  localparam SERIAL_MAG = 0;
 
   // ------------------------------------------------------------------
   // Pin mapping
@@ -66,9 +63,6 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   // control <-> butterfly_unit
   wire [1:0] twiddle_index;
 
-  // control <-> mag_block
-  wire start_mag;
-  wire mag_done;
 
   // control <-> result_reg
   wire result_init;
@@ -120,7 +114,7 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .start         (start)
   );
 
-  control #(.SERIAL_MAG(SERIAL_MAG)) u_control (
+  control u_control (
       .start         (start),
       .flag          (flag),
 
@@ -131,13 +125,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
 
       .twiddle_index (twiddle_index),
 
-      .start_mag     (start_mag),
-      .mag_done      (mag_done),
-
       .result_init   (result_init),
       .result_wr_en  (result_wr_en),
-
-      .mag_rd_addr   (mag_rd_addr),
 
       .clk           (clk),
       .rst_n         (rst_n)
@@ -185,16 +174,9 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   mag_block u_mag_block (
       .buff_real (buff_real),
       .buff_imag (buff_imag),
-
-      .magnitude (magnitude),
-
-      .start_mag (start_mag),
-      .mag_done  (mag_done),
-
-      .clk       (clk),
-      .rst_n     (rst_n)
+      .magnitude (magnitude)
   );
-
+  
   result_reg u_result_reg (
       .clk           (clk),
       .rst_n         (rst_n),
