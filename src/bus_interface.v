@@ -81,7 +81,7 @@ module bus_interface (
         cmd_r  <= cmd_sel;
     end
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             busy        <= 0;
             done        <= 0;
