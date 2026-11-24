@@ -6,21 +6,24 @@
 `default_nettype none
 
 // mag ~= max(|x|,|y|) + 3/8 * min(|x|,|y|)   (about -3% / +6% error)
+// |x| is approximated by ones' complement (x ^ sign),
 module mag_block (
     input  wire signed [7:0] buff_real,
     input  wire signed [7:0] buff_imag,
     output wire        [7:0] magnitude
 );
-    wire [7:0] ax = buff_real[7] ? (~buff_real + 8'd1) : buff_real;  // -128 -> 128 fits
-    wire [7:0] ay = buff_imag[7] ? (~buff_imag + 8'd1) : buff_imag;
+    wire [7:0] ax, ay;
+
+
+    assign ax = {1'b0, buff_real[6:0] ^ {7{buff_real[7]}}};      // max 127
+    assign ay = {1'b0, buff_imag[6:0] ^ {7{buff_imag[7]}}};
+
 
     wire       x_gt = (ax > ay);
     wire [7:0] mx   = x_gt ? ax : ay;
     wire [7:0] mn   = x_gt ? ay : ax;
 
-    wire [9:0] mag_calc;
-
-    assign mag_calc = {2'b0, mx} + ((({2'b0, mn} << 1) + {2'b0, mn}) >> 3);   // max 128 + 48 = 176
+    wire [9:0] mag_calc = {2'b0, mx} + ((({2'b0, mn} << 1) + {2'b0, mn}) >> 3);
     assign magnitude = mag_calc[7:0];
 
 endmodule

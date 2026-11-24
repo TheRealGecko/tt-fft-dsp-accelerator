@@ -26,20 +26,19 @@ module result_reg (
     reg [7:0] peak_mag;      // largest magnitude seen this run
     reg [2:0] peak_idx;      // bin where it occurred
 
+    wire better = wr_en && (magnitude > peak_mag);
+
+    // peak_mag is always cleared by `init` (FFT_START) before the first
+    // MAG_SWEEP, so it needs no reset 
+    always @(posedge clk) begin
+        if (init)        peak_mag <= 8'd0;
+        else if (better) peak_mag <= magnitude;
+    end
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            peak_mag <= 8'd0;
-            peak_idx <= 3'd0;
-        end 
-        else if (init) begin
-            peak_mag <= 8'd0;
-            peak_idx <= 3'd0;
-        end
-        else if (wr_en && (magnitude > peak_mag)) begin
-            peak_mag <= magnitude;
-            peak_idx <= bin_index;
-        end
+        if (!rst_n)      peak_idx <= 3'd0;
+        else if (init)   peak_idx <= 3'd0;
+        else if (better) peak_idx <= bin_index;
     end
 
     assign peak_bin_index = peak_idx;

@@ -74,11 +74,12 @@ module bus_interface (
     assign wr_addr     = wr_ptr;
     assign wr_en       = sample_wr & ~busy & ~full;
 
-    // data_r / cmd_r need no reset (only used when wr_rise is true, which
-    // requires the reset synchronizer chain to have run). Saves reset gates.
+
     always @(posedge clk) begin
-        data_r <= data_in;
-        cmd_r  <= cmd_sel;
+        data_r  <= data_in;
+        cmd_r   <= cmd_sel;
+        wr_sync <= {wr_sync[1:0], wr_strobe};
+        rd_sync <= {rd_sync[1:0], rd_strobe};
     end
 
     always @(posedge clk or negedge rst_n) begin
@@ -90,12 +91,7 @@ module bus_interface (
             start       <= 0;
             wr_ptr      <= 0;
             full        <= 0;
-            wr_sync     <= 0;
-            rd_sync     <= 0;
         end else begin
-            wr_sync <= {wr_sync[1:0], wr_strobe};
-            rd_sync <= {rd_sync[1:0], rd_strobe};
-
             start <= 0;
 
             if (wr_rise && cmd_r) begin
