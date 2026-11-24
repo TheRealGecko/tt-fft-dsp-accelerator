@@ -1,9 +1,7 @@
 from __future__ import annotations
-import math
 
 import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, FallingEdge, Timer
+from cocotb.triggers import Timer
 
 # -------- HELPER FUNCTIONS --------
 
@@ -12,10 +10,17 @@ async def test_mag_calc(dut, vals):
     dut.buff_imag.value = vals[1]
     await Timer(2, units="ns")
 
-    # Check if correct value calculated and done signals are asserted
-    exact_mag = (math.isqrt(vals[0]*vals[0] + vals[1]*vals[1]))
+    # Approximate absolute value using ones' complement, matching RTL
+    ax = vals[0] if vals[0] >= 0 else -vals[0] - 1
+    ay = vals[1] if vals[1] >= 0 else -vals[1] - 1
+
+    mx = max(ax, ay)
+    mn = min(ax, ay)
+
+    expected_mag = mx + ((3 * mn) >> 3)
+
     rtl_mag = int(dut.magnitude.value)
-    assert (rtl_mag >= exact_mag*0.97) and (rtl_mag <= exact_mag*1.06) # roughly within -3% / +6% error
+    assert rtl_mag == expected_mag
 
 
 # -------- TEST FUNCTIONS --------
