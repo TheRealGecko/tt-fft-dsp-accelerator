@@ -28,10 +28,15 @@ module result_reg (
 
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n || init) begin
+        if (!rst_n) begin
             peak_mag <= 8'd0;
             peak_idx <= 3'd0;
-        end else if (wr_en && (magnitude > peak_mag)) begin
+        end 
+        else if (init) begin
+            peak_mag <= 8'd0;
+            peak_idx <= 3'd0;
+        end
+        else if (wr_en && (magnitude > peak_mag)) begin
             peak_mag <= magnitude;
             peak_idx <= bin_index;
         end
