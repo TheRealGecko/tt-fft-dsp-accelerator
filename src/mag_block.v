@@ -19,11 +19,15 @@ module mag_block (
     assign ay = {1'b0, buff_imag[6:0] ^ {7{buff_imag[7]}}};
 
 
-    wire       x_gt = (ax > ay);
+        wire       x_gt = (ax > ay);
     wire [7:0] mx   = x_gt ? ax : ay;
     wire [7:0] mn   = x_gt ? ay : ax;
 
-    wire [9:0] mag_calc = {2'b0, mx} + ((({2'b0, mn} << 1) + {2'b0, mn}) >> 3);
-    assign magnitude = mag_calc[7:0];
+    // 3*mn max = 381 -> 9 bits; after >>3 max = 47 -> 6 bits
+    wire [8:0] mn_x3   = ({1'b0, mn} << 1) + {1'b0, mn};
+    wire [5:0] mn_3_8  = mn_x3[8:3];
+
+    // max 127 + 47 = 174, fits in 8 bits
+    assign magnitude = mx + {2'b0, mn_3_8};
 
 endmodule
