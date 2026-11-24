@@ -18,7 +18,9 @@ module mag_block (
     wire [7:0] mx   = x_gt ? ax : ay;
     wire [7:0] mn   = x_gt ? ay : ax;
 
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [9:0] mag_calc;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     assign mag_calc = {2'b0, mx} + ((({2'b0, mn} << 1) + {2'b0, mn}) >> 3);   // max 128 + 48 = 176
     assign magnitude = mag_calc[7:0];
