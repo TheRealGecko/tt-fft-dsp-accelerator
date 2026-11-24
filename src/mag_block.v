@@ -33,22 +33,20 @@ module mag_block (
     reg [2:0] stage;
 
     // Squaring datapath
-    reg [14:0] x_val; // Stores x first, then x^2
-    reg [14:0] y_val; // Stores y first, then y^2
-    wire signed [14:0] square_param;
-    wire [14:0] square_result;
+    reg [15:0] sqrt_operand;
+    wire [14:0] x_val;
+    wire [14:0] y_val;
+    reg [14:0] square_val;
 
     // Sqrt datapath
-    wire [15:0] sqrt_operand;
     reg [7:0] root;
     reg [3:0] bit_cnt;
     reg signed [16:0] remainder;
     wire signed [16:0] test_root;
-
-    assign square_param = (stage == CALC_X2) ? x_val : y_val; // Choose whether to calculate x^2 or y^2
-    assign square_result = square_param * square_param; // Calculate the square of a value
     
-    assign sqrt_operand = {1'b0, x_val} + {1'b0, y_val}; // Value to calculate sqrt of. Extend x^2 and y^2 to length of sqrt_operand
+    assign x_val = buff_real[7] ? {7'b0, -buff_real} : {7'b0, buff_real};
+    assign y_val = buff_imag[7] ? {7'b0, -buff_imag} : {7'b0, buff_imag};
+
     assign test_root = $signed({7'b0, root, 2'b00});
 
     assign mag_done = (stage == RETURN_RESULT);
@@ -59,11 +57,11 @@ module mag_block (
         if(!rst_n) // Reset values
         begin
             stage <= AWAIT_SAMPLE;
-            x_val <= 0;
-            y_val <= 0;
-            bit_cnt <= 15;
+            bit_cnt <= 0;
             remainder <= 0;
             root <= 0;
+            square_val <= 0;
+            sqrt_operand <= 0;
         end 
         else
         begin
@@ -72,23 +70,51 @@ module mag_block (
                 begin
                     if(start_mag)
                     begin
-                        x_val <= $signed({{7{buff_real[7]}}, buff_real});
-                        y_val <= $signed({{7{buff_imag[7]}}, buff_imag});
-                        bit_cnt <= 15;
+                        bit_cnt <= 0;
                         remainder <= 0;
                         root <= 0;
+                        square_val <= 0;
+                        sqrt_operand <= 0;
                         stage <= CALC_X2;
                     end
                 end
                 CALC_X2: 
                 begin
-                    x_val <= square_result;
-                    stage <= CALC_Y2;
+                    // For each bit in x
+                    // Do square += x << (bitpos) if val at bitpos = 1 
+                    if(bit_cnt < 8)
+                    begin
+                        if(x_val[bit_cnt]) 
+                        begin
+                            square_val <= square_val + x_val << bit_cnt;
+                        end
+                        bit_cnt <= bit_cnt + 1;
+                    end
+                    else
+                    begin
+                        sqrt_operand <= sqrt_operand + square_val;
+                        square_val <= 0;
+                        bit_cnt <= 0;
+                        stage <= CALC_Y2;
+                    end
                 end
                 CALC_Y2:
                 begin
-                    y_val <= square_result;
-                    stage <= SQRT_SETUP;
+                    if(bit_cnt < 8)
+                    begin
+                        if(y_val[bit_cnt])
+                        begin
+                            square_val <= square_val + y_val << bit_cnt;
+                        end
+                        bit_cnt <= bit_cnt + 1;
+                    end
+                    else
+                    begin
+                        sqrt_operand <= sqrt_operand + square_val;
+                        square_val <= 0;
+                        bit_cnt <= 15;
+                        stage <= SQRT_SETUP;
+                    end
                 end
                 /*
                     SQRT ALGORITHM IDEA:
