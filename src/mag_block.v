@@ -56,10 +56,6 @@ module mag_block (
         if(!rst_n) // Reset values
         begin
             stage <= AWAIT_SAMPLE;
-            bit_cnt <= 0;
-            remainder <= 0;
-            root <= 0;
-            sqrt_operand <= 0;
         end 
         else
         begin
