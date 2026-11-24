@@ -37,7 +37,11 @@ def calculate_butterfly(inputs, twiddle):
     f = twiddle[1]
 
     temp1 = format_num(c * e - d * f)
-    temp2 = format_num(d * e + c * f)
+
+    if twiddle[2] == 3:
+        temp2 = -format_num(23 * (c + d))
+    else:
+        temp2 = format_num(d * e + c * f)
 
     out_1_real = a + temp1
     out_1_imag = b + temp2
@@ -192,12 +196,12 @@ async def test_w1_negative_values(dut):
 
 
 @cocotb.test
-async def test_w3_negative_before_shift(dut):
+async def test_w3_negative_output(dut):
     # Important W3 case:
     #
-    # term2 = (-(C+D)*23) >> 5
+    # term2 = -(23*(C+D) >> 5)
     #
-    # Tests the negate-before-right-shift behaviour.
+    # Tests the new negate-after-right-shift behaviour.
 
     in_vals = [3, 2, 4, 2]
 
