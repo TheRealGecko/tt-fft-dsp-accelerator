@@ -65,19 +65,19 @@ async def run_fft(dut, samples):
     # Send start signal
     await pi_write(dut, 1, CMD_START)
     await Timer(1, "ns")
-    assert dut.uo_out[0].value == 1
+    assert dut.uo_out.value[0] == 1
 
     # Wait for FFT to be done
     cnt = 0
-    while not dut.uo_out[1].value:
+    while not dut.uo_out.value[1]:
         cnt += 1
         if cnt > 300:
             return -1
         await RisingEdge(dut.clk)
 
     # Make sure busy and overflow are low
-    assert dut.uo_out[0].value == 0
-    assert dut.uo_out[2].value == 0
+    assert dut.uo_out.value[0] == 0
+    assert dut.uo_out.value[2] == 0
 
     # Get values
     results = [0] * 8
