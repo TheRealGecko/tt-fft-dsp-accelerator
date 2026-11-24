@@ -7,8 +7,8 @@
 
 module bus_interface (
 
-    input  wire         clk,      // clock
-    input  wire         rst_n,    // reset_n - low to reset
+    input  wire         clk,
+    input  wire         rst_n,
 
     // raspi
     input  wire [7:0]   data_in,
@@ -23,10 +23,10 @@ module bus_interface (
     output reg          overflow,
     output wire [3:0]   peak_bin,
 
-    // sample buffer
-    output reg  [7:0]   sample_data,
-    output reg  [2:0]   wr_addr,
-    output reg          wr_en,
+    // sample buffer (now wires, no registers behind them)
+    output wire [7:0]   sample_data,
+    output wire [2:0]   wr_addr,
+    output wire         wr_en,
 
     // result regs
     input  wire [2:0]   peak_bin_index,
@@ -43,83 +43,86 @@ module bus_interface (
     localparam [7:0] CMD_CLEAR = 8'h02;  // placeholder
 
     // ---------------- synchronizers ----------------
-    // wr_strobe: 2-FF sync (stages 0,1) + 2 more stages for edge detect
-    reg [3:0] wr_sync;
+    // wr_strobe: 2-FF sync (bits 0,1) + 1 stage for edge detect (bit 2)
+    reg [2:0] wr_sync;
     // rd_strobe: 2-FF sync + 1 stage for edge detect
     reg [2:0] rd_sync;
-    // data_in / cmd_sel: 2-FF sync, same clock as the strobe chain
-    reg [7:0] data_s0, data_s1;
-    reg       cmd_s0,  cmd_s1;
+    // data_in / cmd_sel: ONE capture stage. The host holds these stable
+    // around the strobe, so only the strobes need the full 2-FF sync.
+    reg [7:0] data_r;
+    reg       cmd_r;
 
-    // The rising edge is detected one stage later than before (stage 2),
-    // so data_s1/cmd_s1 hold the sample taken one clock AFTER the strobe
-    // was first seen high, i.e. in the middle of the strobe window.
-    wire wr_rise = wr_sync[2] & ~wr_sync[3];
+    // wr_sync[0] sees the strobe at clock edge t. data_r/cmd_r are also
+    // captured at edge t, and again at t+1. wr_rise is true in the cycle
+    // after edge t+1, so data_r/cmd_r hold the value sampled at t+1:
+    // one clock after the strobe was first seen, i.e. inside the window.
+    wire wr_rise = wr_sync[1] & ~wr_sync[2];
     wire rd_rise = rd_sync[1] & ~rd_sync[2];
 
     reg [2:0] wr_ptr;
     reg       full;
 
-    assign peak_bin = {1'b0, peak_bin_index};
-    assign data_out = magnitudes;
+    wire sample_wr = wr_rise & ~cmd_r;
 
-    always @(posedge clk or negedge rst_n) begin
+    assign peak_bin    = {1'b0, peak_bin_index};
+    assign data_out    = magnitudes;
+
+    // Write straight into the sample buffer in the wr_rise cycle.
+    // wr_ptr only updates at the end of this cycle, so wr_addr is still the
+    // old (correct) value when sample_buffer captures at the clock edge.
+    assign sample_data = data_r;
+    assign wr_addr     = wr_ptr;
+    assign wr_en       = sample_wr & ~busy & ~full;
+
+    // data_r / cmd_r need no reset (only used when wr_rise is true, which
+    // requires the reset synchronizer chain to have run). Saves reset gates.
+    always @(posedge clk) begin
+        data_r <= data_in;
+        cmd_r  <= cmd_sel;
+    end
+
+    always @(posedge clk) begin
         if (!rst_n) begin
             busy        <= 0;
             done        <= 0;
             overflow    <= 0;
-            sample_data <= 0;
-            wr_addr     <= 0;
-            wr_en       <= 0;
             mag_rd_addr <= 0;
             start       <= 0;
             wr_ptr      <= 0;
             full        <= 0;
             wr_sync     <= 0;
             rd_sync     <= 0;
-            data_s0     <= 0;
-            data_s1     <= 0;
-            cmd_s0      <= 0;
-            cmd_s1      <= 0;
         end else begin
-            // synchronizer shifts
-            wr_sync <= {wr_sync[2:0], wr_strobe};
+            wr_sync <= {wr_sync[1:0], wr_strobe};
             rd_sync <= {rd_sync[1:0], rd_strobe};
-            data_s0 <= data_in;   data_s1 <= data_s0;
-            cmd_s0  <= cmd_sel;   cmd_s1  <= cmd_s0;
 
-            // defaults
-            wr_en <= 0;
             start <= 0;
 
-            if (wr_rise) begin
-                if (cmd_s1) begin
-                    case (data_s1)
-                        CMD_START: if (!busy) begin
-                            start <= 1;
-                            busy  <= 1;
-                            done  <= 0;
-                            full  <= 1;
-                        end
-                        CMD_CLEAR: begin
-                            wr_ptr      <= 0;
-                            full        <= 0;
-                            overflow    <= 0;
-                            done        <= 0;
-                            mag_rd_addr <= 0;
-                        end
-                        default: ;
-                    endcase
-                end else begin
-                    if (busy || full) begin
-                        overflow <= 1;
-                    end else begin
-                        sample_data <= data_s1;
-                        wr_addr     <= wr_ptr;
-                        wr_en       <= 1;
-                        wr_ptr      <= wr_ptr + 1;
-                        if (wr_ptr == 3'd7) full <= 1;
+            if (wr_rise && cmd_r) begin
+                case (data_r)
+                    CMD_START: if (!busy) begin
+                        start <= 1;
+                        busy  <= 1;
+                        done  <= 0;
+                        full  <= 1;   // lock buffer until CLEAR
                     end
+                    CMD_CLEAR: begin
+                        wr_ptr      <= 0;
+                        full        <= 0;
+                        overflow    <= 0;
+                        done        <= 0;
+                        mag_rd_addr <= 0;
+                    end
+                    default: ;
+                endcase
+            end
+
+            if (sample_wr) begin
+                if (busy || full) begin
+                    overflow <= 1;
+                end else begin
+                    wr_ptr <= wr_ptr + 1;
+                    if (wr_ptr == 3'd7) full <= 1;
                 end
             end
 
