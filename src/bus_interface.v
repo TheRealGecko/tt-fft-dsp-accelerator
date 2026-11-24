@@ -99,6 +99,7 @@ module bus_interface (
                             start <= 1;
                             busy  <= 1;
                             done  <= 0;
+                            full  <= 1;
                         end
                         CMD_CLEAR: begin
                             wr_ptr      <= 0;

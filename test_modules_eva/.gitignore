@@ -6,3 +6,5 @@ bus_interface.v
 result_reg.v
 commands.txt
 control.v
+/sim_build_control
+/sim_build_result_reg

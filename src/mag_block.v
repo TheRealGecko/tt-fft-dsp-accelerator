@@ -34,8 +34,8 @@ module mag_block (
 
     // Squaring datapath
     reg [15:0] sqrt_operand;
-    wire [14:0] x_val;
-    wire [14:0] y_val;
+    wire [7:0] x_val;
+    wire [7:0] y_val;
 
     // Sqrt datapath
     reg [7:0] root;
@@ -43,8 +43,8 @@ module mag_block (
     reg signed [16:0] remainder;
     wire signed [16:0] test_root;
     
-    assign x_val = buff_real[7] ? {7'b0, -buff_real} : {7'b0, buff_real};
-    assign y_val = buff_imag[7] ? {7'b0, -buff_imag} : {7'b0, buff_imag};
+    assign x_val = buff_real[7] ? -buff_real : buff_real;
+    assign y_val = buff_imag[7] ? -buff_imag : buff_imag;
 
     assign test_root = $signed({7'b0, root, 2'b00});
 
@@ -60,9 +60,7 @@ module mag_block (
             remainder <= 0;
             root <= 0;
             sqrt_operand <= 0;
-        end 
-        else
-        begin
+        end else begin
             case(stage)
                 AWAIT_SAMPLE:
                 begin
@@ -81,9 +79,9 @@ module mag_block (
                     // Do square += x << (bitpos) if val at bitpos = 1 
                     if(bit_cnt < 8)
                     begin
-                        if(x_val[bit_cnt]) 
+                        if(x_val[bit_cnt[2:0]]) 
                         begin
-                            sqrt_operand <= sqrt_operand + x_val << bit_cnt;
+                            sqrt_operand <= sqrt_operand + ({8'b0, x_val} << bit_cnt);
                         end
                         bit_cnt <= bit_cnt + 1;
                     end
@@ -97,9 +95,9 @@ module mag_block (
                 begin
                     if(bit_cnt < 8)
                     begin
-                        if(y_val[bit_cnt])
+                        if(y_val[bit_cnt[2:0]])
                         begin
-                            sqrt_operand <= sqrt_operand + y_val << bit_cnt;
+                            sqrt_operand <= sqrt_operand + ({8'b0, y_val} << bit_cnt);
                         end
                         bit_cnt <= bit_cnt + 1;
                     end

@@ -6,15 +6,19 @@
 `default_nettype none
 
 module tt_um_fft_dsp_accelerator_eva_fatma (
-    input  wire [7:0] ui_in,    // Dedicated inputs
-    output wire [7:0] uo_out,   // Dedicated outputs
-    input  wire [7:0] uio_in,   // IOs: Input path
-    output wire [7:0] uio_out,  // IOs: Output path
-    output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
-    input  wire       ena,      // always 1 when the design is powered, so you can ignore it
-    input  wire       clk,      // clock
-    input  wire       rst_n     // reset_n - low to reset
+    input  wire [7:0] ui_in,
+    output wire [7:0] uo_out,
+    input  wire [7:0] uio_in,
+    output wire [7:0] uio_out,
+    output wire [7:0] uio_oe,
+    input  wire       ena,
+    input  wire       clk,
+    input  wire       rst_n
 );
+
+  // 0: combinational mag_block (alpha-max-beta-min)
+  // 1: iterative mag_block (exact sqrt, host must wait after reads)
+  localparam SERIAL_MAG = 0;
 
   // ------------------------------------------------------------------
   // Pin mapping
@@ -33,7 +37,6 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   assign uo_out[3]   = 1'b0;
   assign uo_out[7:4] = peak_bin;
 
-  // Bidirectional data bus: drive it only while the host is reading
   assign uio_out = data_out;
   assign uio_oe  = {8{rd_strobe}};
 
@@ -46,9 +49,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   wire [2:0] wr_addr;
   wire       wr_en;
 
-  // bus_interface <-> result_reg
+  // bus_interface <-> result_reg / mag_block
   wire [2:0] peak_bin_index;
-  wire [7:0] magnitudes;
   wire [2:0] mag_rd_addr;
 
   // bus_interface <-> control
@@ -79,8 +81,12 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   // sample_buffer <-> mag_block
   wire signed [7:0] buff_real, buff_imag;
 
-  // mag_block <-> result_reg
+  // mag_block -> result_reg and bus_interface
   wire [7:0] magnitude;
+
+  // Single read port on the sample buffer, shared between the post-FFT
+  // sweep (peak tracking) and host readback.
+  wire [2:0] buff_addr = busy ? mag_index : mag_rd_addr;
 
   // ------------------------------------------------------------------
   // Module instances
@@ -107,14 +113,14 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .wr_en         (wr_en),
 
       .peak_bin_index(peak_bin_index),
-      .magnitudes    (magnitudes),
+      .magnitudes    (magnitude),        // straight from mag_block
       .mag_rd_addr   (mag_rd_addr),
 
       .flag          (flag),
       .start         (start)
   );
 
-  control u_control (
+  control #(.SERIAL_MAG(SERIAL_MAG)) u_control (
       .start         (start),
       .flag          (flag),
 
@@ -130,6 +136,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
 
       .result_init   (result_init),
       .result_wr_en  (result_wr_en),
+
+      .mag_rd_addr   (mag_rd_addr),
 
       .clk           (clk),
       .rst_n         (rst_n)
@@ -155,7 +163,7 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .stage      (stage),
       .butterfly  (butterfly),
       .start_fft  (start_fft),
-      .mag_index  (mag_index),
+      .mag_index  (buff_addr),           // shared read address
 
       .clk        (clk),
       .rst_n      (rst_n)
@@ -193,16 +201,13 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
 
       .magnitude     (magnitude),
 
-      .mag_rd_addr   (mag_rd_addr),
-      .peak_bin_index(peak_bin_index),
-      .magnitudes    (magnitudes),
-
       .init          (result_init),
       .wr_en         (result_wr_en),
-      .bin_index     (mag_index)
+      .bin_index     (mag_index),
+
+      .peak_bin_index(peak_bin_index)
   );
 
-  // List all unused inputs to prevent warnings
   wire _unused = &{ena, ui_in[7:3], 1'b0};
 
 endmodule
