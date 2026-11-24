@@ -47,9 +47,6 @@ module butterfly_unit (
     assign intermediate_term1_resized = intermediate_term1[7:0];
     assign intermediate_term2_resized = intermediate_term2[7:0];
 
-    assign temp1_extended = {{6{temp1[8]}}, temp1};
-    assign temp2_extended = {{6{temp2[8]}}, temp2};
-
     assign out_1_real = in_1_real + intermediate_term1_resized;
     assign out_1_imag = in_1_imag + intermediate_term2_resized;
     assign out_2_real = in_1_real - intermediate_term1_resized;
