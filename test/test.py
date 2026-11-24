@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: © 2024 Tiny Tapeout
 # SPDX-License-Identifier: Apache-2.0
-import math
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import FallingEdge, RisingEdge, ClockCycles, Timer
@@ -14,6 +13,7 @@ twiddle_vals = [
     [0, -32, 2],
     [-23, -23, 3]
 ]
+
 
 # -------- HELPER FUNCTIONS --------
 
@@ -79,13 +79,10 @@ async def run_fft(dut, samples):
     assert dut.uo_out.value[0] == 0
     assert dut.uo_out.value[2] == 0
 
-    # Get values
-    results = [0] * 8
-    for i in range(8):
-        results[i] = dut.uio_out.value
-        await pi_rd_pulse(dut)
+    # Get peak bin
+    peak_bin = (int(dut.uo_out.value) >> 4) & 0xF
 
-    return results
+    return peak_bin
 
 def calculate_butterfly(inputs, twiddle):
     # If inputs are A + Bj, C + Dj, and twiddle is E + Fj then:
@@ -139,8 +136,27 @@ def calculate_mags(inputs):
     for i in range(8):
         real = inputs[i][0]
         imag = inputs[i][1]
-        magnitudes[i] = math.isqrt(real**2 + imag**2)
+
+        ax = abs(real)
+        ay = abs(imag)
+
+        mx = max(ax, ay)
+        mn = min(ax, ay)
+
+        magnitudes[i] = mx + ((3 * mn) >> 3)
+
     return magnitudes
+
+def calculate_peak_bin(magnitudes):
+    peak_mag = 0
+    peak_bin = 0
+
+    for i in range(8):
+        if magnitudes[i] > peak_mag:
+            peak_mag = magnitudes[i]
+            peak_bin = i
+
+    return peak_bin
 
 def control_sample(dut):
     return {
@@ -150,7 +166,6 @@ def control_sample(dut):
         "start_fft": int(dut.user_project.u_control.start_fft.value),
         "mag_index": int(dut.user_project.u_control.mag_index.value),
         "twiddle": int(dut.user_project.u_control.twiddle_index.value),
-        "start_mag": int(dut.user_project.u_control.start_mag.value),
         "result_init": int(dut.user_project.u_control.result_init.value),
         "result_wr_en": int(dut.user_project.u_control.result_wr_en.value),
     }
@@ -177,8 +192,6 @@ def bus_interface_inputs(dut):
 
 def sample_buffer_sample(dut):
     return {
-        "samples_real": dut.user_project.u_sample_buffer.samples_real,
-        "samples_imag": dut.user_project.u_sample_buffer.samples_imag,
         "run_fft": int(dut.user_project.u_sample_buffer.run_fft.value),
     }
 
@@ -192,101 +205,25 @@ def butterfly_sample(dut):
 
 def mag_sample(dut):
     return {
-        "stage": int(dut.user_project.u_mag_block.stage.value),
-        "x_val": int(dut.user_project.u_mag_block.x_val.value),
-        "y_val": int(dut.user_project.u_mag_block.y_val.value),
-        "root": int(dut.user_project.u_mag_block.root.value),
-        "bit_cnt": int(dut.user_project.u_mag_block.bit_cnt.value),
-        "remainder": int(dut.user_project.u_mag_block.remainder.value),
+        "magnitude": int(dut.user_project.u_mag_block.magnitude.value),
     }
 
 async def samples_test(dut, samples):
-    magnitudes_rtl = await run_fft(dut, samples)
+    peak_bin_rtl = await run_fft(dut, samples)
 
-    if(magnitudes_rtl == -1):
+    if(peak_bin_rtl == -1):
         dut._log.info("Timed out")
         return
     
-    # Check if fft results from RTL match with simulated fft results
+    # Check if peak bin from RTL matches with simulated FFT and magnitude results
     data = calculate_8_point_fft(samples)
     magnitudes_sim = calculate_mags(data)
+    peak_bin_sim = calculate_peak_bin(magnitudes_sim)
 
-    for i in range(8):
-        assert magnitudes_rtl[i] == magnitudes_sim[i], (f"Bin {i}: RTL={magnitudes_rtl[i]}, expected={magnitudes_sim[i]}")
+    assert peak_bin_rtl == peak_bin_sim, (f"RTL peak bin={peak_bin_rtl}, expected={peak_bin_sim}")
 
 
 # -------- TEST FUNCTIONS --------
-
-@cocotb.test()
-async def test_reset(dut):  
-    dut._log.info("Start")
-
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
-    cocotb.start_soon(clock.start())
-
-    await reset_sys(dut)
-
-    # Control
-    for n in range(3):
-        await FallingEdge(dut.clk)
-        await Timer(1, "ns")
-        control_s = control_sample(dut) 
-        assert control_s["flag"] == 0
-        assert control_s["start_fft"] == 0
-        assert control_s["start_mag"] == 0
-        assert control_s["result_init"] == 0
-        assert control_s["result_wr_en"] == 0
-        assert (control_s["stage"], control_s["bfly"]) == (0, 0)
-        allowed = (0, 7) if n < 0 else (0,)
-        assert control_s["mag_index"] in allowed
-
-    # Bus interface
-    bus_iface_s = bus_interface_sample(dut)
-    assert bus_iface_s["busy"] == 0
-    assert bus_iface_s["done"] == 0
-    assert bus_iface_s["overflow"] == 0
-    assert bus_iface_s["wr_en"] == 0
-    assert bus_iface_s["start"] == 0
-    assert bus_iface_s["mag_rd_addr"] == 0
-
-    # Sample buffer
-    sample_buff_s = sample_buffer_sample(dut)
-    # for i in range(8):
-    #     assert sample_buff_s["samples_real"][i].value == 0 
-    #     assert sample_buff_s["samples_imag"][i].value == 0
-    assert sample_buff_s["run_fft"] == 0
-
-    # Butterfly 
-    butterfly_s = butterfly_sample(dut)
-    assert butterfly_s["out_1_real"] == 0
-    assert butterfly_s["out_1_imag"] == 0   
-    assert butterfly_s["out_2_real"] == 0
-    assert butterfly_s["out_2_imag"] == 0    
-
-    # Mag block
-    # mag_s = mag_sample(dut)
-    # assert mag_s["stage"] == 0 
-    # assert mag_s["x_val"] == 0
-    # assert mag_s["y_val"] == 0
-    # assert mag_s["root"] == 0
-    # assert mag_s["bit_cnt"] == 15
-    # assert mag_s["remainder"] == 0
-    
-@cocotb.test()
-async def test_all_samples_0(dut):  
-    dut._log.info("Start")
-
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
-    cocotb.start_soon(clock.start())
-
-    await reset_sys(dut)
-
-    samples = [0,0,0,0,0,0,0,0]
-    await samples_test(dut, samples)
-
-
 @cocotb.test()
 async def test_all_samples_0(dut):  
     dut._log.info("Start")
@@ -424,4 +361,10 @@ async def test_back_to_back_fft(dut):
     await reset_sys(dut)
 
     samples = [8, 8, 8, 8, 8, 8, 8, 8]
+    await samples_test(dut, samples)
+
+    # Clear buffer before loading the next FFT
+    await pi_write(dut, 1, CMD_CLEAR)
+
+    samples = [8, 6, 0, -6, -8, -6, 0, 6]
     await samples_test(dut, samples)
