@@ -19,7 +19,7 @@ module mag_block (
     assign ay = {1'b0, buff_imag[6:0] ^ {7{buff_imag[7]}}};
 
 
-        wire       x_gt = (ax > ay);
+    wire       x_gt = (ax > ay);
     wire [7:0] mx   = x_gt ? ax : ay;
     wire [7:0] mn   = x_gt ? ay : ax;
 
