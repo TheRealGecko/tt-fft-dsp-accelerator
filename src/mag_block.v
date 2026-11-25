@@ -24,7 +24,9 @@ module mag_block (
     wire [7:0] mn   = x_gt ? ay : ax;
 
     // 3*mn max = 381 -> 9 bits; after >>3 max = 47 -> 6 bits
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [8:0] mn_x3   = ({1'b0, mn} << 1) + {1'b0, mn};
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [5:0] mn_3_8  = mn_x3[8:3];
 
     // max 127 + 47 = 174, fits in 8 bits
