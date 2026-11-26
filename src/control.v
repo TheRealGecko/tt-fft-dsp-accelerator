@@ -51,14 +51,14 @@ module control (
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state     <= IDLE;
-            stage     <= 2'd0;
-            butterfly <= 2'd0;
+            stage     <= 0;
+            butterfly <= 0;
             mag_index <= 3'd0;
         end else begin
             case (state)
                 IDLE: begin
-                    stage     <= 2'd0;
-                    butterfly <= 2'd0;
+                    stage     <= 0;
+                    butterfly <= 0;
                     mag_index <= 3'd0;
                     if (start) state <= FFT_START;
                 end
