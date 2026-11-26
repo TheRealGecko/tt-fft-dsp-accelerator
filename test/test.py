@@ -84,6 +84,12 @@ async def run_fft(dut, samples):
 
     return peak_bin
 
+
+def wrap8(value):
+    value &= 0xFF
+    return value - 256 if value & 0x80 else value
+
+
 def calculate_butterfly(inputs, twiddle):
     # If inputs are A + Bj, C + Dj, and twiddle is E + Fj then:
     # out_1_real = A + CE - DF
@@ -100,45 +106,127 @@ def calculate_butterfly(inputs, twiddle):
     temp1 = (c*e - d*f) >> 5
     temp2 = (d*e + c*f) >> 5
 
-    out_1_real = a + temp1
-    out_1_imag = b + temp2
-    out_2_real = a - temp1
-    out_2_imag = b - temp2
+    out_1_real = wrap8(a + temp1)
+    out_1_imag = wrap8(b + temp2)
+    out_2_real = wrap8(a - temp1)
+    out_2_imag = wrap8(b - temp2)
 
     return [out_1_real, out_1_imag, out_2_real, out_2_imag]
 
+
 def calculate_8_point_fft(samples):
-    # Bit-reversed input order for 8-point DIT FFT
-    # Store complex values as [real, imag]
-    data = [[samples[0], 0], [samples[4], 0], [samples[2], 0], [samples[6], 0], [samples[1], 0], [samples[5], 0], [samples[3], 0], [samples[7], 0]]
+    # Pack 8 real samples into 4 complex samples:
+    # y0 = x0 + jx1
+    # y1 = x2 + jx3
+    # y2 = x4 + jx5
+    # y3 = x6 + jx7
+    #
+    # 4-point DIT FFT requires bit-reversed packed input:
+    # y0, y2, y1, y3
+    data = [
+        [samples[0], samples[1]],
+        [samples[4], samples[5]],
+        [samples[2], samples[3]],
+        [samples[6], samples[7]]
+    ]
 
-    addr1 = [[0, 2, 4, 6], [0, 1, 4, 5], [0, 1, 2, 3]]
-    addr2 = [[1, 3, 5, 7], [2, 3, 6, 7], [4, 5, 6, 7]]
-    twiddle_idx = [[0, 0, 0, 0],[0, 2, 0, 2],[0, 1, 2, 3]]
+    # 4-point FFT:
+    # stage 0: (0,1) W0, (2,3) W0
+    # stage 1: (0,2) W0, (1,3) W2
+    addr1 = [
+        [0, 2],
+        [0, 1]
+    ]
 
-    for stage in range(3):
-        for butterfly in range(4):
+    addr2 = [
+        [1, 3],
+        [2, 3]
+    ]
+
+    twiddle_idx = [
+        [0, 0],
+        [0, 2]
+    ]
+
+    for stage in range(2):
+        for butterfly in range(2):
             a = addr1[stage][butterfly]
             b = addr2[stage][butterfly]
 
-            inputs = [data[a][0], data[a][1], data[b][0], data[b][1]]
+            inputs = [
+                data[a][0],
+                data[a][1],
+                data[b][0],
+                data[b][1]
+            ]
 
-            out = calculate_butterfly(inputs, twiddle_vals[twiddle_idx[stage][butterfly]])
+            out = calculate_butterfly(
+                inputs,
+                twiddle_vals[twiddle_idx[stage][butterfly]]
+            )
 
             data[a] = [out[0], out[1]]
             data[b] = [out[2], out[3]]
 
-    return data
+    # data now contains Y0, Y1, Y2, Y3
+    y0r, y0i = data[0]
+    y1r, y1i = data[1]
+    y2r, y2i = data[2]
+    y3r, y3i = data[3]
+
+    # Set up even/odd values used for X1 and X3
+    er1 = (y1r + y3r) >> 1
+    ei1 = (y1i - y3i) >> 1
+    or1 = (y1i + y3i) >> 1
+    oi1 = (y3r - y1r) >> 1
+
+    # k = 23/32 ~= sqrt(2)/2
+    interm1 = (23 * (or1 + oi1)) >> 5
+    interm2 = (23 * (oi1 - or1)) >> 5
+
+    # Reconstruct the five unique outputs X0..X4
+    fft_vals = [
+        # X0
+        [wrap8(y0r + y0i), 0],
+
+        # X1
+        [
+            wrap8(er1 + interm1),
+            wrap8(ei1 + interm2)
+        ],
+
+        # X2
+        [
+            wrap8(y2r),
+            wrap8(-y2i)
+        ],
+
+        # X3
+        [
+            wrap8(er1 - interm1),
+            wrap8(-ei1 + interm2)
+        ],
+
+        # X4
+        [
+            wrap8(y0r - y0i),
+            0
+        ]
+    ]
+
+    return fft_vals
 
 
 def calculate_mags(inputs):
-    magnitudes = [0] * 8
-    for i in range(8):
+    magnitudes = [0] * 5
+
+    for i in range(5):
         real = inputs[i][0]
         imag = inputs[i][1]
 
-        ax = abs(real)
-        ay = abs(imag)
+        # Match mag_block one's-complement absolute value approximation
+        ax = real if real >= 0 else -real - 1
+        ay = imag if imag >= 0 else -imag - 1
 
         mx = max(ax, ay)
         mn = min(ax, ay)
@@ -147,16 +235,18 @@ def calculate_mags(inputs):
 
     return magnitudes
 
+
 def calculate_peak_bin(magnitudes):
     peak_mag = 0
     peak_bin = 0
 
-    for i in range(8):
+    for i in range(5):
         if magnitudes[i] > peak_mag:
             peak_mag = magnitudes[i]
             peak_bin = i
 
     return peak_bin
+
 
 def control_sample(dut):
     return {
@@ -170,6 +260,7 @@ def control_sample(dut):
         "result_wr_en": int(dut.user_project.u_control.result_wr_en.value),
     }
 
+
 def bus_interface_sample(dut):
     return {
         "busy": int(dut.user_project.u_bus_interface.busy.value),
@@ -179,21 +270,23 @@ def bus_interface_sample(dut):
         "start": int(dut.user_project.u_bus_interface.start.value),
         "mag_rd_addr": int(dut.user_project.u_bus_interface.mag_rd_addr.value),
         "data_out": int(dut.user_project.u_bus_interface.data_out.value),
-
     }
+
 
 def bus_interface_inputs(dut):
     return {
-        "data_in": dut.user_project.u_bus_interface.data_in.value,  
+        "data_in": dut.user_project.u_bus_interface.data_in.value,
         "wr_strobe": dut.user_project.u_bus_interface.wr_strobe.value,
         "cmd_sel": dut.user_project.u_bus_interface.cmd_sel.value,
         "rd_strobe": dut.user_project.u_bus_interface.rd_strobe.value,
     }
 
+
 def sample_buffer_sample(dut):
     return {
         "run_fft": int(dut.user_project.u_sample_buffer.run_fft.value),
     }
+
 
 def butterfly_sample(dut):
     return {
@@ -203,29 +296,34 @@ def butterfly_sample(dut):
         "out_2_imag": int(dut.user_project.u_butterfly_unit.out_2_imag.value),
     }
 
+
 def mag_sample(dut):
     return {
         "magnitude": int(dut.user_project.u_mag_block.magnitude.value),
     }
 
+
 async def samples_test(dut, samples):
     peak_bin_rtl = await run_fft(dut, samples)
 
-    if(peak_bin_rtl == -1):
+    if peak_bin_rtl == -1:
         dut._log.info("Timed out")
         return
-    
+
     # Check if peak bin from RTL matches with simulated FFT and magnitude results
     data = calculate_8_point_fft(samples)
     magnitudes_sim = calculate_mags(data)
     peak_bin_sim = calculate_peak_bin(magnitudes_sim)
 
-    assert peak_bin_rtl == peak_bin_sim, (f"RTL peak bin={peak_bin_rtl}, expected={peak_bin_sim}")
+    assert peak_bin_rtl == peak_bin_sim, (
+        f"RTL peak bin={peak_bin_rtl}, expected={peak_bin_sim}"
+    )
 
 
 # -------- TEST FUNCTIONS --------
+
 @cocotb.test()
-async def test_all_samples_0(dut):  
+async def test_all_samples_0(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -239,7 +337,7 @@ async def test_all_samples_0(dut):
 
 
 @cocotb.test()
-async def test_all_pos_samples(dut):  
+async def test_all_pos_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -253,7 +351,7 @@ async def test_all_pos_samples(dut):
 
 
 @cocotb.test()
-async def test_all_neg_samples(dut):  
+async def test_all_neg_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -267,7 +365,7 @@ async def test_all_neg_samples(dut):
 
 
 @cocotb.test()
-async def test_mixed_pos_neg_samples(dut):  
+async def test_mixed_pos_neg_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -281,7 +379,7 @@ async def test_mixed_pos_neg_samples(dut):
 
 
 @cocotb.test()
-async def test_max_pos_samples(dut):  
+async def test_max_pos_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -295,7 +393,7 @@ async def test_max_pos_samples(dut):
 
 
 @cocotb.test()
-async def test_min_neg_samples(dut):  
+async def test_min_neg_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -309,7 +407,7 @@ async def test_min_neg_samples(dut):
 
 
 @cocotb.test()
-async def test_impulse_samples(dut):  
+async def test_impulse_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -323,7 +421,7 @@ async def test_impulse_samples(dut):
 
 
 @cocotb.test()
-async def test_sinusoid_samples(dut):  
+async def test_sinusoid_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -337,7 +435,7 @@ async def test_sinusoid_samples(dut):
 
 
 @cocotb.test()
-async def test_constant_samples(dut):  
+async def test_constant_samples(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
@@ -351,7 +449,7 @@ async def test_constant_samples(dut):
 
 
 @cocotb.test()
-async def test_back_to_back_fft(dut):  
+async def test_back_to_back_fft(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)

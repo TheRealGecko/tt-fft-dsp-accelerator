@@ -26,8 +26,8 @@ module sample_buffer (
     output signed [7:0] in_2_imag, 
 
     // Control FSM wires 
-    input wire [1:0] stage,
-    input wire [1:0] butterfly,
+    input wire stage,
+    input wire butterfly,
     input wire start_fft,
     input wire [2:0] mag_index,
 
@@ -35,92 +35,130 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
+    // Reg for final vals
+    wire signed [7:0] fft_vals [0:4][0:1];
+    wire signed [8:0] even [1:0];
+    wire signed [8:0] odd [1:0];
+
     // Reg for running fft
     reg run_fft;
 
-    // butterfly addressing. stage only ever takes 0..2, so stage 2 is the
-    // default branch (no stage==3 decode, and addr_2 is provably never 0).
-    reg [2:0] fft_addr_1, addr_2;
-    always @(*) begin
-        case (stage)
-            2'b00:   begin fft_addr_1 = {butterfly, 1'b0};
-                           addr_2     = {butterfly, 1'b1}; end
-            2'b01:   begin fft_addr_1 = {butterfly[1], 1'b0, butterfly[0]};
-                           addr_2     = {butterfly[1], 1'b1, butterfly[0]}; end
-            default: begin fft_addr_1 = {1'b0, butterfly};
-                           addr_2     = {1'b1, butterfly}; end
-        endcase
-    end
+    // Sample registers. Only 4 complex numbers needed for 4-point packed FFT
+    reg signed [7:0] samples [0:3][0:1];
 
-    // port 1 is the FFT port while running, the readback port otherwise
-    wire [2:0] addr_1 = run_fft ? fft_addr_1 : mag_index;
+    // Reversed bit address
+    wire [1:0] wr_addr_rev = {wr_addr[1], wr_addr[2]}; // Which index to write at, reversed
+    wire wr_addr_part = wr_addr[0]; // Whether to write in real or imag
 
-    wire [2:0] wr_addr_rev = {wr_addr[0], wr_addr[1], wr_addr[2]};
+    // Addresses for butterfly unit inputs
+    reg [1:0] addr_1;
+    reg [1:0] addr_2;
 
-    // ---- shared write buses (mux ONCE, not per register bit) ----
-    wire       we1      = wr_en | run_fft;
-    wire       we2      = run_fft;   // wr_en (needs ~busy) and run_fft (needs busy) are exclusive
-    wire [2:0] waddr1   = wr_en ? wr_addr_rev : addr_1;
-    wire signed [7:0] wdata1_r = wr_en ? data : out_1_real;
-    wire signed [7:0] wdata1_i = wr_en ? 8'sd0 : out_1_imag;
+    // Select butterfly unit inputs
+    assign in_1_real = samples[addr_1][0];
+    assign in_1_imag = samples[addr_1][1];
+    assign in_2_real = samples[addr_2][0];
+    assign in_2_imag = samples[addr_2][1];
 
-    wire signed [7:0] re [0:7];
-    wire signed [7:0] im [0:7];
+    // Select magnitude block inputs
+    assign buff_real = fft_vals[mag_index][0];
+    assign buff_imag = fft_vals[mag_index][1];
 
-    genvar k;
-    generate
-        for (k = 0; k < 8; k = k + 1) begin : g_word
-            wire hit1 = we1 && (waddr1 == k);
-            // addr_2 is never 0 (always has a '1' bit set), so word 0 has no port-2 write
-            wire hit2 = (k != 0) && we2 && (addr_2 == k);
+    // Set up even/odd for x1 and x3
+    assign even[0] = ($signed({samples[1][0][7], samples[1][0]}) + $signed({samples[3][0][7], samples[3][0]})) >>> 1;
+    assign even[1] = ($signed({samples[1][1][7], samples[1][1]}) - $signed({samples[3][1][7], samples[3][1]})) >>> 1;
+    assign odd[0]  = ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
+    assign odd[1]  = ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
 
-            reg signed [7:0] r;
-            assign re[k] = r;
-            always @(posedge clk) begin
-                if      (hit1) r <= wdata1_r;
-                else if (hit2) r <= out_2_real;
+    // Assign FFT vals
+    // Intermediates/helpers
+    wire signed [9:0] sum_o = odd[0] + odd[1];
+    wire signed [9:0] diff_o = odd[1] - odd[0];
+    wire signed [14:0] sum_o_ext = {{5{sum_o[9]}}, sum_o};
+    wire signed [14:0] diff_o_ext = {{5{diff_o[9]}}, diff_o};
+
+    wire signed [14:0] product1 =
+    (sum_o_ext << 4) + (sum_o_ext << 3) - sum_o_ext;
+    wire signed [14:0] product2 =
+    (diff_o_ext << 4) + (diff_o_ext << 3) - diff_o_ext;
+    wire signed [9:0] interm1 = product1[14:5];
+    wire signed [9:0] interm2 = product2[14:5];
+
+    wire signed [9:0] x1_real = $signed({even[0][8], even[0]}) + interm1;
+    wire signed [9:0] x1_imag = $signed({even[1][8], even[1]}) + interm2;
+    wire signed [9:0] x3_real = $signed({even[0][8], even[0]}) - interm1;
+    wire signed [9:0] x3_imag = -$signed({even[1][8], even[1]}) + interm2;
+    // x0
+    assign fft_vals[0][0] = samples[0][0] + samples[0][1]; // a0 + b0
+    assign fft_vals[0][1] = 0; // 0
+    // x1
+    assign fft_vals[1][0] = x1_real[7:0];
+    assign fft_vals[1][1] = x1_imag[7:0];
+    // x2
+    assign fft_vals[2][0] = samples[2][0]; // a2
+    assign fft_vals[2][1] = -samples[2][1]; // -b2
+    // x3
+    assign fft_vals[3][0] = x3_real[7:0];
+    assign fft_vals[3][1] = x3_imag[7:0];
+    // x4
+    assign fft_vals[4][0] = samples[0][0] - samples[0][1]; // a0 - b0
+    assign fft_vals[4][1] = 0; // 0
+
+    integer j;
+    always @(posedge clk or negedge rst_n)
+    begin  
+        if(!rst_n) // Reset values
+        begin
+            run_fft <= 0;
+        end 
+        else
+        begin
+            // Run FFT once Control FSM sends start signal
+            if(start_fft)
+            begin
+                run_fft <= 1;
             end
 
-            if (k == 0 || k == 4) begin : g_imag_zero
-                assign im[k] = 8'sd0;         // always 0 for real input
-            end else begin : g_imag
-                reg signed [7:0] i;
-                assign im[k] = i;
-                always @(posedge clk) begin
-                    if      (hit1) i <= wdata1_i;
-                    else if (hit2) i <= out_2_imag;
-                end
+            if(wr_en) // If new sample data is ready to be loaded, store new sample data in samples_real
+            begin
+                // Store data at a reversed bit index
+                samples[wr_addr_rev][wr_addr_part] <= data;
+            end
+            else if(run_fft) // Store butterfly unit outputs if run_fft is true
+            begin
+                samples[addr_1][0] <= out_1_real;
+                samples[addr_1][1] <= out_1_imag;
+                samples[addr_2][0] <= out_2_real;
+                samples[addr_2][1] <= out_2_imag;
+                // If the final calculation of the fft has been processed, stop the fft
+                if(stage == 1 && butterfly == 1)
+                    run_fft <= 0;
             end
         end
-    endgenerate
-
-    assign in_1_real = re[addr_1];
-    assign in_1_imag = im[addr_1];
-    // port 2 is only used by the FFT, where addr_2 is in 1..7: fold 0 onto 7 so
-    // the mux has 7 legs instead of 8.
-    reg signed [7:0] in2_r, in2_i;
-    always @(*) begin
-        case (addr_2)
-            3'd1:    begin in2_r = re[1]; in2_i = im[1]; end
-            3'd2:    begin in2_r = re[2]; in2_i = im[2]; end
-            3'd3:    begin in2_r = re[3]; in2_i = im[3]; end
-            3'd4:    begin in2_r = re[4]; in2_i = im[4]; end
-            3'd5:    begin in2_r = re[5]; in2_i = im[5]; end
-            3'd6:    begin in2_r = re[6]; in2_i = im[6]; end
-            default: begin in2_r = re[7]; in2_i = im[7]; end
-        endcase
     end
-    assign in_2_real = in2_r;
-    assign in_2_imag = in2_i;
-    assign buff_real = in_1_real;
-    assign buff_imag = in_1_imag;
 
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) run_fft <= 1'b0;
-        else begin
-            if (start_fft) run_fft <= 1'b1;
-            if (run_fft && stage == 2'd2 && butterfly == 2'd3)
-                run_fft <= 1'b0;
-        end
+    always @(*)
+    begin
+        case({stage, butterfly})
+            2'b00: begin
+                addr_1 = 2'b00;
+                addr_2 = 2'b01;
+            end
+
+            2'b01: begin
+                addr_1 = 2'b10;
+                addr_2 = 2'b11;
+            end
+
+            2'b10: begin
+                addr_1 = 2'b00;
+                addr_2 = 2'b10;
+            end
+
+            default: begin
+                addr_1 = 2'b01;
+                addr_2 = 2'b11;
+            end
+        endcase
     end
 endmodule

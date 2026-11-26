@@ -55,8 +55,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   wire flag;
 
   // control <-> sample_buffer
-  wire [1:0] stage;
-  wire [1:0] butterfly;
+  wire stage;
+  wire butterfly;
   wire       start_fft;
   wire [2:0] mag_index;
 

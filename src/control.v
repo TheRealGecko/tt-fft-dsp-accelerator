@@ -8,8 +8,8 @@ module control (
     input  wire       start,
     output reg        flag,
 
-    output reg  [1:0] stage,
-    output reg  [1:0] butterfly,
+    output reg        stage,
+    output reg        butterfly,
     output reg        start_fft,
     output reg  [2:0] mag_index,
 
@@ -29,9 +29,7 @@ module control (
 
     reg [2:0] state;
 
-    assign twiddle_index = (stage == 2'd0) ? 2'b00 :
-                           (stage == 2'd1) ? {butterfly[0], 1'b0} :
-                                             butterfly;
+    assign twiddle_index = (stage && butterfly) ? 2'b10 : 2'b00;
 
     always @(*) begin
         flag         = 1'b0;
@@ -68,22 +66,22 @@ module control (
                 FFT_START: state <= FFT_RUN;
 
                 FFT_RUN: begin
-                    if (butterfly == 2'd3) begin
-                        butterfly <= 2'd0;
-                        if (stage == 2'd2) begin
-                            stage     <= 2'd0;
+                    if (butterfly) begin
+                        butterfly <= 0;
+                        if (stage) begin
+                            stage     <= 0;
                             mag_index <= 3'd0;
                             state     <= MAG_SWEEP;
                         end else begin
-                            stage <= stage + 2'd1;
+                            stage <= stage ^ 1;
                         end
                     end else begin
-                        butterfly <= butterfly + 2'd1;
+                        butterfly <= butterfly ^ 1;
                     end
                 end
 
                 MAG_SWEEP: begin
-                    if (mag_index == 3'd7) state <= DONE;
+                    if (mag_index == 3'd4) state <= DONE;
                     else                   mag_index <= mag_index + 3'd1;
                 end
 
