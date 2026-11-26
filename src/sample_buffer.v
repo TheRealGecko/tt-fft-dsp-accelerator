@@ -35,6 +35,8 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
+    wire _unused = &{product1[4:0], product2[4:0], x1_real[9:8], x1_imag[9:8], x3_real[9:8], x3_imag[9:8]};
+
     // Reg for final vals
     wire signed [7:0] fft_vals [0:4][0:1];
     wire signed [8:0] even [1:0];
@@ -104,7 +106,6 @@ module sample_buffer (
     assign fft_vals[4][0] = samples[0][0] - samples[0][1]; // a0 - b0
     assign fft_vals[4][1] = 0; // 0
 
-    integer j;
     always @(posedge clk or negedge rst_n)
     begin  
         if(!rst_n) // Reset values
