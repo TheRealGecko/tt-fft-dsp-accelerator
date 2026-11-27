@@ -129,8 +129,7 @@ module sample_buffer (
                     even[1] <= ($signed({samples[1][1][7], samples[1][1]}) - $signed({samples[3][1][7], samples[3][1]})) >>> 1;
                     odd[0]  <= ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
                     odd[1]  <= ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
-                    expand_ready <= 1;
-                    state <= EXPAND_X;
+                    state <= CALC_INTERM1;
                 end
 
                 CALC_INTERM1: begin
@@ -141,6 +140,7 @@ module sample_buffer (
 
                 CALC_INTERM2: begin
                     interm2 <= interm_result;
+                    expand_ready <= 1;
                     state <= EXPAND_X;
                 end
 
