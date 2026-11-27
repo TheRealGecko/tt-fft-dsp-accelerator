@@ -209,9 +209,9 @@ module sample_buffer (
         input signed [9:0] val;
         reg signed [14:0] val_ext;
         reg signed [14:0] product;
-        reg _unused;
+        reg _func_unused;
         begin
-            _unused = &{product[4:0]};
+            _func_unused = &{product[4:0]};
             val_ext = {{5{val[9]}}, val};
             product = (val_ext << 4) + (val_ext << 3) - val_ext;
             mul_23_div_32 = product[14:5];
