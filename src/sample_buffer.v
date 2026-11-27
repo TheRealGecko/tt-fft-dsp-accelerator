@@ -36,6 +36,7 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
+    wire _unused = &{x1_x3_real[9:8], x1_x3_imag[9:8]};
 
     // Reg for final vals
     reg signed [7:0] x_real;
@@ -208,7 +209,9 @@ module sample_buffer (
         input signed [9:0] val;
         reg signed [14:0] val_ext;
         reg signed [14:0] product;
+        reg _unused;
         begin
+            _unused = &{product[4:0]};
             val_ext = {{5{val[9]}}, val};
             product = (val_ext << 4) + (val_ext << 3) - val_ext;
             mul_23_div_32 = product[14:5];
