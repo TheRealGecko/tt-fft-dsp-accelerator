@@ -36,7 +36,6 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
-    wire _unused = &{product1[4:0], product2[4:0], x1_real[9:8], x1_imag[9:8], x3_real[9:8], x3_imag[9:8]};
 
     // Reg for final vals
     reg signed [7:0] x_real;
@@ -73,27 +72,22 @@ module sample_buffer (
     assign buff_imag = x_imag;
 
     // Intermediates/helpers for calculating x1 and x3
-    wire signed [9:0] sum_o = odd[0] + odd[1];
-    wire signed [9:0] diff_o = odd[1] - odd[0];
-    wire signed [14:0] sum_o_ext = {{5{sum_o[9]}}, sum_o};
-    wire signed [14:0] diff_o_ext = {{5{diff_o[9]}}, diff_o};
-
-    wire signed [14:0] product1 = (sum_o_ext << 4) + (sum_o_ext << 3) - sum_o_ext;
-    wire signed [14:0] product2 = (diff_o_ext << 4) + (diff_o_ext << 3) - diff_o_ext;
-    wire signed [9:0] interm1 = product1[14:5];
-    wire signed [9:0] interm2 = product2[14:5];
+    wire signed [9:0] interm1 = mul_23_div_32(odd[0] + odd[1]);
+    wire signed [9:0] interm2 = mul_23_div_32(odd[1] - odd[0]);
+    wire signed [9:0] even_real_ext = $signed({even[0][8], even[0]});
+    wire signed [9:0] even_imag_ext = $signed({even[1][8], even[1]});
 
     // Calculated x1 and x3
-    wire signed [9:0] x1_real = $signed({even[0][8], even[0]}) + interm1;
-    wire signed [9:0] x1_imag = $signed({even[1][8], even[1]}) + interm2;
-    wire signed [9:0] x3_real = $signed({even[0][8], even[0]}) - interm1;
-    wire signed [9:0] x3_imag = -$signed({even[1][8], even[1]}) + interm2;
+    wire x3_sel = (mag_index == 3'd3);
+    wire signed [9:0] x1_x3_real = x3_sel ? (even_real_ext - interm1) : (even_real_ext + interm1);
+    wire signed [9:0] x1_x3_imag = x3_sel ? (-even_imag_ext + interm2) : ( even_imag_ext + interm2);
 
     always @(posedge clk or negedge rst_n)
     begin  
         if(!rst_n) // Reset values
         begin
             state <= IDLE;
+            expand_ready <= 0;
         end 
         else
         begin
@@ -137,16 +131,16 @@ module sample_buffer (
                             x_imag <= 0; // 0
                         end
                         3'd1: begin
-                            x_real <= x1_real[7:0];
-                            x_imag <= x1_imag[7:0]; 
+                            x_real <= x1_x3_real[7:0];
+                            x_imag <= x1_x3_imag[7:0];
                         end
                         3'd2: begin
                             x_real <= samples[2][0]; // a2
                             x_imag <= -samples[2][1]; // -b2
                         end
                         3'd3: begin
-                            x_real <= x3_real[7:0];
-                            x_imag <= x3_imag[7:0];
+                            x_real <= x1_x3_real[7:0];
+                            x_imag <= x1_x3_imag[7:0];
                         end
                         3'd4: begin
                             x_real <= samples[0][0] - samples[0][1]; // a0 - b0
@@ -188,4 +182,15 @@ module sample_buffer (
             end
         endcase
     end
+
+    function automatic signed [9:0] mul_23_div_32; // ~= multiplying by sqrt(2)/2
+        input signed [9:0] val;
+        reg signed [14:0] val_ext;
+        reg signed [14:0] product;
+        begin
+            val_ext = {{5{val[9]}}, val};
+            product = (val_ext << 4) + (val_ext << 3) - val_ext;
+            mul_23_div_32 = product[14:5];
+        end
+    endfunction
 endmodule
