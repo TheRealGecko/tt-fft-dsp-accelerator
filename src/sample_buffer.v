@@ -44,11 +44,13 @@ module sample_buffer (
     reg signed [8:0] odd [1:0];
 
     // Reg for running fft
-    localparam [1:0] RUN_FFT      = 2'd0;
-    localparam [1:0] EXPAND_EVEN_ODD = 2'd1;
-    localparam [1:0] EXPAND_X   = 2'd2;
-    localparam [1:0] IDLE   = 2'd3;
-    reg [1:0] state;
+    localparam [2:0] RUN_FFT      = 3'd0;
+    localparam [2:0] EXPAND_EVEN_ODD = 3'd1;
+    localparam [2:0] CALC_INTERM1   = 3'd2;
+    localparam [2:0] CALC_INTERM2   = 3'd3;
+    localparam [2:0] EXPAND_X   = 3'd4;
+    localparam [2:0] IDLE   = 3'd5;
+    reg [2:0] state;
 
     // Sample registers. Only 4 complex numbers needed for 4-point packed FFT
     reg signed [7:0] samples [0:3][0:1];
@@ -72,8 +74,16 @@ module sample_buffer (
     assign buff_imag = x_imag;
 
     // Intermediates/helpers for calculating x1 and x3
-    wire signed [9:0] interm1 = mul_23_div_32(odd[0] + odd[1]);
-    wire signed [9:0] interm2 = mul_23_div_32(odd[1] - odd[0]);
+    reg signed [9:0] interm1;
+    reg signed [9:0] interm2;
+    reg interm_sel;
+    wire signed [9:0] interm_input =
+    interm_sel
+        ? ($signed({odd[1][7], odd[1]}) -
+           $signed({odd[0][7], odd[0]}))
+        : ($signed({odd[0][7], odd[0]}) +
+           $signed({odd[1][7], odd[1]}));
+    wire signed [9:0] interm_result = mul_23_div_32(interm_input);
     wire signed [9:0] even_real_ext = $signed({even[0][8], even[0]});
     wire signed [9:0] even_imag_ext = $signed({even[1][8], even[1]});
 
@@ -120,6 +130,17 @@ module sample_buffer (
                     odd[0]  <= ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
                     odd[1]  <= ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
                     expand_ready <= 1;
+                    state <= EXPAND_X;
+                end
+
+                CALC_INTERM1: begin
+                    interm1 <= interm_result;
+                    interm_sel <= 1'b1;
+                    state <= CALC_INTERM2;
+                end
+
+                CALC_INTERM2: begin
+                    interm2 <= interm_result;
                     state <= EXPAND_X;
                 end
 
