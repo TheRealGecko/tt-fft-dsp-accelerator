@@ -79,6 +79,10 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   // mag_block -> result_reg and bus_interface
   wire [7:0] magnitude;
 
+  // Single read port on the sample buffer, shared between the post-FFT
+  // sweep (peak tracking) and host readback.
+  wire [2:0] buff_addr = busy ? mag_index : mag_rd_addr;
+
   // ------------------------------------------------------------------
   // Module instances
   // ------------------------------------------------------------------
@@ -150,7 +154,7 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .stage      (stage),
       .butterfly  (butterfly),
       .start_fft  (start_fft),
-      .mag_index  (mag_index),           // shared read address
+      .mag_index  (buff_addr),           // shared read address
       .fft_done   (fft_done),
 
       .clk        (clk),
