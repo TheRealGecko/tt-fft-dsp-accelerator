@@ -30,7 +30,7 @@ module sample_buffer (
     input wire butterfly,
     input wire start_fft,
     input wire [2:0] mag_index,
-    output reg fft_done,
+    output reg expand_ready,
 
     // Control wires
     input wire clk,
@@ -39,7 +39,8 @@ module sample_buffer (
     wire _unused = &{product1[4:0], product2[4:0], x1_real[9:8], x1_imag[9:8], x3_real[9:8], x3_imag[9:8]};
 
     // Reg for final vals
-    reg signed [7:0] fft_vals [0:4][0:1];
+    reg signed [7:0] x_real;
+    reg signed [7:0] x_imag;
     reg signed [8:0] even [1:0];
     reg signed [8:0] odd [1:0];
 
@@ -68,11 +69,10 @@ module sample_buffer (
     assign in_2_imag = samples[addr_2][1];
 
     // Select magnitude block inputs
-    assign buff_real = fft_vals[mag_index][0];
-    assign buff_imag = fft_vals[mag_index][1];
+    assign buff_real = x_real;
+    assign buff_imag = x_imag;
 
-    // Assign FFT vals
-    // Intermediates/helpers
+    // Intermediates/helpers for calculating x1 and x3
     wire signed [9:0] sum_o = odd[0] + odd[1];
     wire signed [9:0] diff_o = odd[1] - odd[0];
     wire signed [14:0] sum_o_ext = {{5{sum_o[9]}}, sum_o};
@@ -83,6 +83,7 @@ module sample_buffer (
     wire signed [9:0] interm1 = product1[14:5];
     wire signed [9:0] interm2 = product2[14:5];
 
+    // Calculated x1 and x3
     wire signed [9:0] x1_real = $signed({even[0][8], even[0]}) + interm1;
     wire signed [9:0] x1_imag = $signed({even[1][8], even[1]}) + interm2;
     wire signed [9:0] x3_real = $signed({even[0][8], even[0]}) - interm1;
@@ -124,33 +125,41 @@ module sample_buffer (
                     even[1] <= ($signed({samples[1][1][7], samples[1][1]}) - $signed({samples[3][1][7], samples[3][1]})) >>> 1;
                     odd[0]  <= ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
                     odd[1]  <= ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
+                    expand_ready <= 1;
                     state <= EXPAND_X;
                 end
 
+                // Supply final fft (x) values when they are requested
                 EXPAND_X: begin
-                    // x0
-                    fft_vals[0][0] <= samples[0][0] + samples[0][1]; // a0 + b0
-                    fft_vals[0][1] <= 0; // 0
-                    // x1
-                    fft_vals[1][0] <= x1_real[7:0];
-                    fft_vals[1][1] <= x1_imag[7:0];
-                    // x2
-                    fft_vals[2][0] <= samples[2][0]; // a2
-                    fft_vals[2][1] <= -samples[2][1]; // -b2
-                    // x3
-                    fft_vals[3][0] <= x3_real[7:0];
-                    fft_vals[3][1] <= x3_imag[7:0];
-                    // x4
-                    fft_vals[4][0] <= samples[0][0] - samples[0][1]; // a0 - b0
-                    fft_vals[4][1] <= 0; // 0
-
-                    fft_done <= 1;
-                    state <= IDLE;
+                    case(mag_index)
+                        3'd0: begin
+                            x_real <= samples[0][0] + samples[0][1]; // a0 + b0
+                            x_imag <= 0; // 0
+                        end
+                        3'd1: begin
+                            x_real <= x1_real[7:0];
+                            x_imag <= x1_imag[7:0]; 
+                        end
+                        3'd2: begin
+                            x_real <= samples[2][0]; // a2
+                            x_imag <= -samples[2][1]; // -b2
+                        end
+                        3'd3: begin
+                            x_real <= x3_real[7:0];
+                            x_imag <= x3_imag[7:0];
+                        end
+                        3'd4: begin
+                            x_real <= samples[0][0] - samples[0][1]; // a0 - b0
+                            x_imag <= 0; // 0
+                            state <= IDLE;
+                        end
+                        default: state <= IDLE;
+                    endcase
                 end
 
-                IDLE: begin
-                    fft_done <= 0;
-                end
+                IDLE: expand_ready <= 0;
+
+                default: state <= IDLE;
             endcase
         end
     end
