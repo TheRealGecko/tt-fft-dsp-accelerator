@@ -8,6 +8,7 @@ module control (
     input  wire       start,
     output reg        flag,
 
+    input wire        fft_done,
     output reg        stage,
     output reg        butterfly,
     output reg        start_fft,
@@ -24,8 +25,9 @@ module control (
     localparam [2:0] IDLE      = 3'd0;
     localparam [2:0] FFT_START = 3'd1;
     localparam [2:0] FFT_RUN   = 3'd2;
-    localparam [2:0] MAG_SWEEP = 3'd3;
-    localparam [2:0] DONE      = 3'd4;
+    localparam [2:0] AWAIT_FFT_EXPAND = 3'd3;
+    localparam [2:0] MAG_SWEEP = 3'd4;
+    localparam [2:0] DONE      = 3'd5;
 
     reg [2:0] state;
 
@@ -69,14 +71,20 @@ module control (
                     if (butterfly) begin
                         butterfly <= 0;
                         if (stage) begin
-                            stage     <= 0;
-                            mag_index <= 3'd0;
-                            state     <= MAG_SWEEP;
+                            state <= AWAIT_FFT_EXPAND;
                         end else begin
                             stage <= stage ^ 1;
                         end
                     end else begin
                         butterfly <= butterfly ^ 1;
+                    end
+                end
+
+                AWAIT_FFT_EXPAND: begin
+                    if(fft_done) begin
+                        stage     <= 0;
+                        mag_index <= 3'd0;
+                        state     <= MAG_SWEEP;
                     end
                 end
 

@@ -59,6 +59,7 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   wire butterfly;
   wire       start_fft;
   wire [2:0] mag_index;
+  wire fft_done;
 
   // control <-> butterfly_unit
   wire [1:0] twiddle_index;
@@ -118,6 +119,7 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .start         (start),
       .flag          (flag),
 
+      .fft_done      (fft_done),
       .stage         (stage),
       .butterfly     (butterfly),
       .start_fft     (start_fft),
@@ -152,7 +154,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .stage      (stage),
       .butterfly  (butterfly),
       .start_fft  (start_fft),
-      .mag_index  (buff_addr),           // shared read address
+      .mag_index  (mag_index),           // shared read address
+      .fft_done   (fft_done),
 
       .clk        (clk),
       .rst_n      (rst_n)
