@@ -9,7 +9,6 @@
 // |x| is approximated by ones' complement (x ^ sign),
 module mag_block (
     input wire clk,
-    input wire rst_n,
 
     input  wire signed [7:0] buff_real,
     input  wire signed [7:0] buff_imag,
