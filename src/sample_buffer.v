@@ -64,6 +64,12 @@ module sample_buffer (
     reg [1:0] addr_1;
     reg [1:0] addr_2;
 
+    // Select butterfly unit inputs
+    assign in_1_real = samples[addr_1][0];
+    assign in_1_imag = samples[addr_1][1];
+    assign in_2_real = samples[addr_2][0];
+    assign in_2_imag = samples[addr_2][1];
+
     // Select magnitude block inputs
     assign buff_real = x_real;
     assign buff_imag = x_imag;
@@ -200,30 +206,4 @@ module sample_buffer (
             mul_sqrt2_over_2_approx = product[14:5];
         end
     endfunction
-
-    // Select butterfly unit inputs
-    assign in_1_real = samples[addr_1][0];
-    assign in_1_imag = samples[addr_1][1];
-    // Reduce from 4 mux legs to 3 since addr_2 is never 0
-    reg signed [7:0] in2_r, in2_i;
-    always @(*) begin
-        case (addr_2)
-            2'd1: begin
-                in2_r = samples[1][0];
-                in2_i = samples[1][1];
-            end
-
-            2'd2: begin
-                in2_r = samples[2][0];
-                in2_i = samples[2][1];
-            end
-
-            default: begin
-                in2_r = samples[3][0];
-                in2_i = samples[3][1];
-            end
-        endcase
-    end
-    assign in_2_real = in2_r;
-    assign in_2_imag = in2_i;
 endmodule
