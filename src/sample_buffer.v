@@ -36,9 +36,9 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
-    // Reg for final vals
-    reg signed [7:0] x_real;
-    reg signed [7:0] x_imag;
+    // Reg for final vals and for x1/x3 complex odd value
+    reg signed [7:0] x_real_odd;
+    reg signed [7:0] x_imag_odd;
 
     // Reg for running fft
     localparam [2:0] RUN_FFT      = 3'd0;
@@ -104,16 +104,18 @@ module sample_buffer (
     assign in_2_imag = samples[addr_2][1];
 
     // Select magnitude block inputs
-    assign buff_real = x_real;
-    assign buff_imag = x_imag;
+    assign buff_real = x_real_odd; // Stores complex odd part of x1 and x3, then the x_real value
+    assign buff_imag = x_imag_odd;
 
     // Intermediates/helpers for calculating x1 and x3
     reg signed [8:0] even [1:0]; // Complex even part of x1 and x3
-    reg signed [8:0] odd [1:0]; // Complex odd part of x1 and x3
     reg signed [9:0] interm1;
     reg signed [9:0] interm2;
-    wire signed [9:0] interm_input = (state == CALC_INTERM2) ? ($signed({odd[1][7], odd[1]}) - $signed({odd[0][7], odd[0]})) : ($signed({odd[0][7], odd[0]}) + $signed({odd[1][7], odd[1]}));
+    wire signed [9:0] interm_input = (state == CALC_INTERM2) ? ($signed({{2{x_imag_odd[7]}}, x_imag_odd}) - $signed({{2{x_real_odd[7]}}, x_real_odd})) : ($signed({{2{x_real_odd[7]}}, x_real_odd}) + $signed({{2{x_imag_odd[7]}}, x_imag_odd}));
     wire signed [9:0] interm_result = mul_sqrt2_over_2_approx(interm_input);
+
+    wire signed [8:0] odd_r_full = ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
+    wire signed [8:0] odd_i_full = ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
 
     // Calculated x1 and x3
     wire x3_sel = (mag_index == 3'd3);
@@ -141,8 +143,8 @@ module sample_buffer (
                     // Set up even/odd for x1 and x3
                     even[0] <= ($signed({samples[1][0][7], samples[1][0]}) + $signed({samples[3][0][7], samples[3][0]})) >>> 1;
                     even[1] <= ($signed({samples[1][1][7], samples[1][1]}) - $signed({samples[3][1][7], samples[3][1]})) >>> 1;
-                    odd[0]  <= ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
-                    odd[1]  <= ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
+                    x_real_odd <= odd_r_full[7:0];
+                    x_imag_odd <= odd_i_full[7:0];
                     state <= CALC_INTERM1;
                 end
 
@@ -160,24 +162,24 @@ module sample_buffer (
                 EXPAND_X: begin
                     case(mag_index)
                         3'd0: begin
-                            x_real <= samples[0][0] + samples[0][1]; // a0 + b0
-                            x_imag <= 0; // 0
+                            x_real_odd <= samples[0][0] + samples[0][1]; // a0 + b0
+                            x_imag_odd <= 0; // 0
                         end
                         3'd1: begin
-                            x_real <= x1_x3_real;
-                            x_imag <= x1_x3_imag;
+                            x_real_odd <= x1_x3_real;
+                            x_imag_odd <= x1_x3_imag;
                         end
                         3'd2: begin
-                            x_real <= samples[2][0]; // a2
-                            x_imag <= -samples[2][1]; // -b2
+                            x_real_odd <= samples[2][0]; // a2
+                            x_imag_odd <= -samples[2][1]; // -b2
                         end
                         3'd3: begin
-                            x_real <= x1_x3_real[7:0];
-                            x_imag <= x1_x3_imag[7:0];
+                            x_real_odd <= x1_x3_real[7:0];
+                            x_imag_odd <= x1_x3_imag[7:0];
                         end
                         3'd4: begin
-                            x_real <= samples[0][0] - samples[0][1]; // a0 - b0
-                            x_imag <= 0; // 0
+                            x_real_odd <= samples[0][0] - samples[0][1]; // a0 - b0
+                            x_imag_odd <= 0; // 0
                             state <= IDLE;
                         end
                         default: state <= IDLE;
