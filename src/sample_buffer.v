@@ -99,6 +99,11 @@ module sample_buffer (
     reg [1:0] addr_1;
     reg [1:0] addr_2;
 
+    assign addr_1[1] = (~stage) & butterfly;
+    assign addr_1[0] =   stage  & butterfly;
+    assign addr_2[1] = stage | butterfly;
+    assign addr_2[0] = (~stage) | butterfly;
+
     // Select butterfly unit inputs
     assign in_1_real = samples[addr_1][0];
     assign in_1_imag = samples[addr_1][1];
@@ -191,31 +196,6 @@ module sample_buffer (
                 default: state <= IDLE;
             endcase
         end
-    end
-
-    always @(*)
-    begin
-        case({stage, butterfly})
-            2'b00: begin
-                addr_1 = 2'b00;
-                addr_2 = 2'b01;
-            end
-
-            2'b01: begin
-                addr_1 = 2'b10;
-                addr_2 = 2'b11;
-            end
-
-            2'b10: begin
-                addr_1 = 2'b00;
-                addr_2 = 2'b10;
-            end
-
-            default: begin
-                addr_1 = 2'b01;
-                addr_2 = 2'b11;
-            end
-        endcase
     end
 
     function automatic signed [9:0] mul_sqrt2_over_2_approx; // ~= multiplying by sqrt(2)/2
