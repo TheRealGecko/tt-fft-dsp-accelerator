@@ -36,8 +36,6 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
-    wire _unused = &{x1_x3_real[9:8], x1_x3_imag[9:8]};
-
     // Reg for final vals
     reg signed [7:0] x_real;
     reg signed [7:0] x_imag;
@@ -119,8 +117,8 @@ module sample_buffer (
 
     // Calculated x1 and x3
     wire x3_sel = (mag_index == 3'd3);
-    wire signed [9:0] x1_x3_real = x3_sel ? ($signed({even[0][8], even[0]}) - interm1) : ($signed({even[0][8], even[0]}) + interm1);
-    wire signed [9:0] x1_x3_imag = x3_sel ? (-$signed({even[1][8], even[1]}) + interm2) : ( $signed({even[1][8], even[1]}) + interm2);
+    wire signed [7:0] x1_x3_real = x3_sel ? (even[0][7:0] - interm1[7:0]) : (even[0][7:0] + interm1[7:0]);
+    wire signed [7:0] x1_x3_imag = x3_sel ? (-even[1][7:0] + interm2[7:0]) : ( even[1][7:0] + interm2[7:0]);
 
     always @(posedge clk or negedge rst_n)
     begin  
@@ -166,8 +164,8 @@ module sample_buffer (
                             x_imag <= 0; // 0
                         end
                         3'd1: begin
-                            x_real <= x1_x3_real[7:0];
-                            x_imag <= x1_x3_imag[7:0];
+                            x_real <= x1_x3_real;
+                            x_imag <= x1_x3_imag;
                         end
                         3'd2: begin
                             x_real <= samples[2][0]; // a2
