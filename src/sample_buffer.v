@@ -41,8 +41,6 @@ module sample_buffer (
     // Reg for final vals
     reg signed [7:0] x_real;
     reg signed [7:0] x_imag;
-    reg signed [8:0] even [1:0];
-    reg signed [8:0] odd [1:0];
 
     // Reg for running fft
     localparam [2:0] RUN_FFT      = 3'd0;
@@ -75,23 +73,18 @@ module sample_buffer (
     assign buff_imag = x_imag;
 
     // Intermediates/helpers for calculating x1 and x3
+    reg signed [8:0] even [1:0]; // Complex even part of x1 and x3
+    reg signed [8:0] odd [1:0]; // Complex odd part of x1 and x3
     reg signed [9:0] interm1;
     reg signed [9:0] interm2;
     reg interm_sel;
-    wire signed [9:0] interm_input =
-    interm_sel
-        ? ($signed({odd[1][7], odd[1]}) -
-           $signed({odd[0][7], odd[0]}))
-        : ($signed({odd[0][7], odd[0]}) +
-           $signed({odd[1][7], odd[1]}));
-    wire signed [9:0] interm_result = mul_23_div_32(interm_input);
-    wire signed [9:0] even_real_ext = $signed({even[0][8], even[0]});
-    wire signed [9:0] even_imag_ext = $signed({even[1][8], even[1]});
+    wire signed [9:0] interm_input = interm_sel ? ($signed({odd[1][7], odd[1]}) - $signed({odd[0][7], odd[0]})) : ($signed({odd[0][7], odd[0]}) + $signed({odd[1][7], odd[1]}));
+    wire signed [9:0] interm_result = mul_sqrt2_over_2_approx(interm_input);
 
     // Calculated x1 and x3
     wire x3_sel = (mag_index == 3'd3);
-    wire signed [9:0] x1_x3_real = x3_sel ? (even_real_ext - interm1) : (even_real_ext + interm1);
-    wire signed [9:0] x1_x3_imag = x3_sel ? (-even_imag_ext + interm2) : ( even_imag_ext + interm2);
+    wire signed [9:0] x1_x3_real = x3_sel ? ($signed({even[0][8], even[0]}) - interm1) : ($signed({even[0][8], even[0]}) + interm1);
+    wire signed [9:0] x1_x3_imag = x3_sel ? (-$signed({even[1][8], even[1]}) + interm2) : ( $signed({even[1][8], even[1]}) + interm2);
 
     always @(posedge clk or negedge rst_n)
     begin  
@@ -205,7 +198,7 @@ module sample_buffer (
         endcase
     end
 
-    function automatic signed [9:0] mul_23_div_32; // ~= multiplying by sqrt(2)/2
+    function automatic signed [9:0] mul_sqrt2_over_2_approx; // ~= multiplying by sqrt(2)/2
         input signed [9:0] val;
         reg signed [14:0] val_ext;
         reg signed [14:0] product;
@@ -214,7 +207,7 @@ module sample_buffer (
             _func_unused = &{product[4:0]};
             val_ext = {{5{val[9]}}, val};
             product = (val_ext << 4) + (val_ext << 3) - val_ext;
-            mul_23_div_32 = product[14:5];
+            mul_sqrt2_over_2_approx = product[14:5];
         end
     endfunction
 endmodule
