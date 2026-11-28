@@ -14,8 +14,6 @@ module mag_block (
 
     input wire clk
 );
-    wire _unused = &{mn_x3[2:0]};
-
     wire [7:0] ax, ay;
 
     assign ax = {1'b0, buff_real[6:0] ^ {7{buff_real[7]}}};      // max 127
@@ -32,11 +30,6 @@ module mag_block (
     always @(posedge clk) begin
         mn_reg <= mn;
     end
-
-    // 3*mn max = 381 -> 9 bits; after >>3 max = 47 -> 6 bits
-    wire [8:0] mn_x3   = ({1'b0, mn_reg} << 1) + {1'b0, mn_reg};
-    
-    wire [5:0] mn_3_8  = mn_x3[8:3];
 
     // max 127 + 47 = 174, fits in 8 bits
     wire [7:0] magnitude_next = mx + {2'b00, mn[7:2]} + {3'b000, mn[7:3]};
