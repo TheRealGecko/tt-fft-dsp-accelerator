@@ -8,11 +8,9 @@
 // mag ~= max(|x|,|y|) + 3/8 * min(|x|,|y|)   (about -3% / +6% error)
 // |x| is approximated by ones' complement (x ^ sign),
 module mag_block (
-    input wire clk,
-
     input  wire signed [7:0] buff_real,
     input  wire signed [7:0] buff_imag,
-    output reg        [7:0] magnitude
+    output wire        [7:0] magnitude
 );
     wire [7:0] ax, ay;
 
@@ -32,9 +30,6 @@ module mag_block (
     wire [5:0] mn_3_8  = mn_x3[8:3];
 
     // max 127 + 47 = 174, fits in 8 bits
-    wire [7:0] magnitude_next = mx + {2'b0, mn_3_8};
-
-    always @(posedge clk)
-        magnitude <= magnitude_next;
+    assign magnitude = mx + {2'b0, mn_3_8};
 
 endmodule

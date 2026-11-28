@@ -65,7 +65,7 @@ module bus_interface (
     wire sample_wr = wr_rise & ~cmd_r;
 
     assign peak_bin    = {1'b0, peak_bin_index};
-    assign data_out    = magnitudes;
+    assign data_out    = data_r;
 
     // Write straight into the sample buffer in the wr_rise cycle.
     // wr_ptr only updates at the end of this cycle, so wr_addr is still the
@@ -76,10 +76,15 @@ module bus_interface (
 
 
     always @(posedge clk) begin
-        data_r  <= data_in;
-        cmd_r   <= cmd_sel;
         wr_sync <= {wr_sync[1:0], wr_strobe};
         rd_sync <= {rd_sync[1:0], rd_strobe};
+
+        if (rd_rise)
+            data_r <= magnitudes;
+        else
+            data_r <= data_in;
+
+        cmd_r <= cmd_sel;
     end
 
     always @(posedge clk or negedge rst_n) begin
