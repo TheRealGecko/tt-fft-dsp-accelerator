@@ -27,8 +27,9 @@ module control (
     localparam [2:0] FFT_RUN   = 3'd2;
     localparam [2:0] AWAIT_FFT_EXPAND_START = 3'd3;
     localparam [2:0] AWAIT_X_CALC = 3'd4;
-    localparam [2:0] MAG_SWEEP = 3'd5;
-    localparam [2:0] DONE      = 3'd6;
+    localparam [2:0] AWAIT_MAG_SETTLE = 3'd5;
+    localparam [2:0] MAG_SWEEP = 3'd6;
+    localparam [2:0] DONE      = 3'd7;
 
     reg [2:0] state;
 
@@ -89,9 +90,9 @@ module control (
                     end
                 end
 
-                AWAIT_X_CALC: begin // Wait a cycle between mag sweeps to allow sample buffer to calc expanded fft value
-                    state <= MAG_SWEEP;
-                end
+                AWAIT_X_CALC: state <= AWAIT_MAG_SETTLE; // Wait a cycle between mag sweeps to allow sample buffer to calc expanded fft value
+
+                AWAIT_MAG_SETTLE: state <= MAG_SWEEP;
 
                 MAG_SWEEP: begin
                     if (mag_index == 3'd4) state <= DONE;
