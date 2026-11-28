@@ -60,6 +60,41 @@ module sample_buffer (
     wire [1:0] wr_addr_rev = {wr_addr[1], wr_addr[2]}; // Which index to write at, reversed
     wire wr_addr_part = wr_addr[0]; // Whether to write in real or imag
 
+    // Host write and butterfly output 1 share one address/data bus
+    wire [1:0] waddr1 = wr_en ? wr_addr_rev : addr_1;
+
+    wire signed [7:0] wdata1_r = wr_en ? data : out_1_real;
+    wire signed [7:0] wdata1_i = wr_en ? data : out_1_imag;
+    wire we1_r = (state == RUN_FFT) | (wr_en & ~wr_addr_part);
+    wire we1_i = (state == RUN_FFT) | (wr_en &  wr_addr_part);
+    wire we2 = (state == RUN_FFT);
+
+    genvar k;
+    generate
+        for (k = 0; k < 4; k = k + 1) begin : g_word
+            wire hit1_r = we1_r && (waddr1 == k);
+            wire hit1_i = we1_i && (waddr1 == k);
+            // addr_2 is never 0 (always has a '1' bit set), so word 0 has no port-2 write
+            wire hit2 = (k != 0) && we2 && (addr_2 == k);
+
+            always @(posedge clk) 
+            begin
+                if (hit1_r)
+                    samples[k][0] <= wdata1_r;
+                else if (hit2)
+                    samples[k][0] <= out_2_real;
+            end
+
+            always @(posedge clk) 
+            begin
+                if (hit1_i)
+                    samples[k][1] <= wdata1_i;
+                else if (hit2)
+                    samples[k][1] <= out_2_imag;
+            end
+        end
+    endgenerate
+
     // Addresses for butterfly unit inputs
     reg [1:0] addr_1;
     reg [1:0] addr_2;
@@ -95,25 +130,12 @@ module sample_buffer (
         end 
         else
         begin
-            if(wr_en) // If new sample data is ready to be loaded, store new sample data in samples_real
-            begin
-                // Store data at a reversed bit index
-                samples[wr_addr_rev][wr_addr_part] <= data;
-            end
-            else if(start_fft) // Run FFT once Control FSM sends start signal
-            begin
-                state <= RUN_FFT;
-            end   
+            if(!wr_en && start_fft)
+                state <= RUN_FFT;  
 
             case (state)
                 RUN_FFT: begin
-                    // Store butterfly unit outputs if run_fft is true
-                    samples[addr_1][0] <= out_1_real;
-                    samples[addr_1][1] <= out_1_imag;
-                    samples[addr_2][0] <= out_2_real;
-                    samples[addr_2][1] <= out_2_imag;
-                    // If the final calculation of the fft has been processed, stop the fft
-                    if(stage == 1 && butterfly == 1)
+                    if(stage && butterfly)
                         state <= EXPAND_EVEN_ODD;
                 end
 
