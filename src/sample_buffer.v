@@ -36,6 +36,8 @@ module sample_buffer (
     input wire clk,
     input wire rst_n
 );
+    wire _unused = &{interm1[9:8], interm2[9:8], odd_r_full[8], odd_i_full[8]};
+
     // Reg for final vals and for x1/x3 complex odd value
     reg signed [7:0] x_real_odd;
     reg signed [7:0] x_imag_odd;
