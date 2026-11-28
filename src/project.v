@@ -55,8 +55,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   wire flag;
 
   // control <-> sample_buffer
-  wire stage;
-  wire butterfly;
+  wire [1:0] fft_addr_1;
+  wire [1:0] fft_addr_2;
   wire       start_fft;
   wire [2:0] mag_index;
   wire expand_ready;
@@ -120,8 +120,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .flag          (flag),
 
       .expand_ready      (expand_ready),
-      .stage         (stage),
-      .butterfly     (butterfly),
+      .fft_addr_1    (fft_addr_1),
+      .fft_addr_2    (fft_addr_2),
       .start_fft     (start_fft),
       .mag_index     (mag_index),
 
@@ -151,8 +151,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
       .in_2_real  (in_2_real),
       .in_2_imag  (in_2_imag),
 
-      .stage      (stage),
-      .butterfly  (butterfly),
+      .fft_addr_1 (fft_addr_1),
+      .fft_addr_2 (fft_addr_2),
       .start_fft  (start_fft),
       .mag_index  (buff_addr),           // shared read address
       .expand_ready   (expand_ready),

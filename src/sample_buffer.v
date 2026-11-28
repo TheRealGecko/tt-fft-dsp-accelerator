@@ -26,8 +26,8 @@ module sample_buffer (
     output signed [7:0] in_2_imag, 
 
     // Control FSM wires 
-    input wire stage,
-    input wire butterfly,
+    input wire [1:0] fft_addr_1,
+    input wire [1:0] fft_addr_2,
     input wire start_fft,
     input wire [2:0] mag_index,
     output wire expand_ready,
@@ -105,13 +105,8 @@ module sample_buffer (
     endgenerate
 
     // Addresses for butterfly unit inputs
-    wire [1:0] addr_1;
-    wire [1:0] addr_2;
-
-    assign addr_1[1] = (~stage) & butterfly;
-    assign addr_1[0] =   stage  & butterfly;
-    assign addr_2[1] = stage | butterfly;
-    assign addr_2[0] = (~stage) | butterfly;
+    wire [1:0] addr_1 = fft_addr_1;
+    wire [1:0] addr_2 = fft_addr_2;
 
     // Select butterfly unit inputs
     assign in_1_real = $signed(samples[addr_1][15:8]);
@@ -151,7 +146,7 @@ module sample_buffer (
 
             case (state)
                 RUN_FFT: begin
-                    if(stage && butterfly)
+                    if(addr_1 == 2'b01)
                         state <= EXPAND_EVEN_ODD;
                 end
 

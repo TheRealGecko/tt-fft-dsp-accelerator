@@ -9,8 +9,8 @@ module control (
     output reg        flag,
 
     input wire        expand_ready,
-    output reg        stage,
-    output reg        butterfly,
+    output wire [1:0] fft_addr_1,
+    output wire [1:0] fft_addr_2,
     output reg        start_fft,
     output reg  [2:0] mag_index,
 
@@ -35,6 +35,8 @@ module control (
 
     reg mag_wait;
 
+    reg stage;
+    reg butterfly;
     assign twiddle_index = (stage && butterfly) ? 2'b10 : 2'b00;
 
     always @(*) begin
@@ -118,4 +120,8 @@ module control (
             endcase
         end
     end
+
+    assign fft_addr_1 = {(~stage) & butterfly, stage  & butterfly};
+    assign fft_addr_2 = {stage | butterfly, (~stage) | butterfly};
+    
 endmodule
