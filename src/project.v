@@ -177,7 +177,8 @@ module tt_um_fft_dsp_accelerator_eva_fatma (
   mag_block u_mag_block (
       .buff_real (buff_real),
       .buff_imag (buff_imag),
-      .magnitude (magnitude)
+      .magnitude (magnitude),
+      .clk       (clk)
   );
   
   result_reg u_result_reg (

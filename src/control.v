@@ -33,6 +33,8 @@ module control (
 
     reg [2:0] state;
 
+    reg mag_wait;
+
     assign twiddle_index = (stage && butterfly) ? 2'b10 : 2'b00;
 
     always @(*) begin
@@ -46,7 +48,7 @@ module control (
                 start_fft   = 1'b1;
                 result_init = 1'b1;
             end
-            MAG_SWEEP: result_wr_en = 1'b1;   // magnitude is valid for mag_index now
+            MAG_SWEEP: if(mag_wait) result_wr_en = 1'b1;   // magnitude is valid for mag_index now
             DONE:      flag         = 1'b1;
             default: ;
         endcase
@@ -63,6 +65,7 @@ module control (
                 IDLE: begin
                     stage     <= 0;
                     butterfly <= 0;
+                    mag_wait  <= 0;
                     mag_index <= 3'd0;
                     if (start) state <= FFT_START;
                 end
@@ -95,10 +98,17 @@ module control (
                 AWAIT_MAG_SETTLE: state <= MAG_SWEEP;
 
                 MAG_SWEEP: begin
-                    if (mag_index == 3'd4) state <= DONE;
+                    if(!mag_wait)
+                        mag_wait <= 1'b1;
                     else begin
-                        mag_index <= mag_index + 3'd1;
-                        state <= AWAIT_X_CALC;
+                        mag_wait <= 1'b0;
+
+                        if (mag_index == 3'd4) 
+                            state <= DONE;
+                        else begin
+                            mag_index <= mag_index + 3'd1;
+                            state <= AWAIT_X_CALC;
+                        end
                     end
                 end
 
