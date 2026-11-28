@@ -24,17 +24,17 @@ module mag_block (
 
     wire       x_gt = (ax > ay);
     wire [7:0] mx   = x_gt ? ax : ay;
-    wire [7:0] mn   = x_gt ? ay : ax;
+    wire [6:0] mn   = x_gt ? ay[6:0] : ax[6:0]; // ax and ay max val is 127 -> mn needs 7 bits
 
     // Pipeline boundry
-    reg [7:0] mn_reg;
+    reg [6:0] mn_reg;
 
     always @(posedge clk) begin
         mn_reg <= mn;
     end
 
     // max 127 + 47 = 174, fits in 8 bits
-    wire [7:0] magnitude_next = mx + {2'b00, mn_reg[7:2]} + {3'b000, mn_reg[7:3]};
+    wire [7:0] magnitude_next = mx + {3'b00, mn_reg[6:2]} + {4'b000, mn_reg[6:3]};
 
     always @(posedge clk) begin
         magnitude <= magnitude_next;
