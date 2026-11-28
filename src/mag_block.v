@@ -32,7 +32,7 @@ module mag_block (
     end
 
     // max 127 + 47 = 174, fits in 8 bits
-    wire [7:0] magnitude_next = mx + {2'b00, mn[7:2]} + {3'b000, mn[7:3]};
+    wire [7:0] magnitude_next = mx + {2'b00, mn_reg[7:2]} + {3'b000, mn_reg[7:3]};
 
     always @(posedge clk) begin
         magnitude <= magnitude_next;
