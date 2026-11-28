@@ -54,7 +54,16 @@ module sample_buffer (
     assign expand_ready = (state == EXPAND_X);
 
     // Sample registers. Only 4 complex numbers needed for 4-point packed FFT
-    reg signed [7:0] samples [0:3][0:1];
+    reg signed [15:0] samples [0:3];
+
+    wire signed [7:0] s0_real = $signed(samples[0][15:8]);
+    wire signed [7:0] s0_imag = $signed(samples[0][7:0]);
+    wire signed [7:0] s1_real = $signed(samples[1][15:8]);
+    wire signed [7:0] s1_imag = $signed(samples[1][7:0]);
+    wire signed [7:0] s2_real = $signed(samples[2][15:8]);
+    wire signed [7:0] s2_imag = $signed(samples[2][7:0]);
+    wire signed [7:0] s3_real = $signed(samples[3][15:8]);
+    wire signed [7:0] s3_imag = $signed(samples[3][7:0]);
 
     // Reversed bit address
     wire [1:0] wr_addr_rev = {wr_addr[1], wr_addr[2]}; // Which index to write at, reversed
@@ -80,24 +89,24 @@ module sample_buffer (
             always @(posedge clk) 
             begin
                 if (hit1_r)
-                    samples[k][0] <= wdata1_r;
+                    samples[k][15:8] <= wdata1_r;
                 else if (hit2)
-                    samples[k][0] <= out_2_real;
+                    samples[k][15:8] <= out_2_real;
             end
 
             always @(posedge clk) 
             begin
                 if (hit1_i)
-                    samples[k][1] <= wdata1_i;
+                    samples[k][7:0] <= wdata1_i;
                 else if (hit2)
-                    samples[k][1] <= out_2_imag;
+                    samples[k][7:0] <= out_2_imag;
             end
         end
     endgenerate
 
     // Addresses for butterfly unit inputs
-    reg [1:0] addr_1;
-    reg [1:0] addr_2;
+    wire [1:0] addr_1;
+    wire [1:0] addr_2;
 
     assign addr_1[1] = (~stage) & butterfly;
     assign addr_1[0] =   stage  & butterfly;
@@ -105,10 +114,10 @@ module sample_buffer (
     assign addr_2[0] = (~stage) | butterfly;
 
     // Select butterfly unit inputs
-    assign in_1_real = samples[addr_1][0];
-    assign in_1_imag = samples[addr_1][1];
-    assign in_2_real = samples[addr_2][0];
-    assign in_2_imag = samples[addr_2][1];
+    assign in_1_real = $signed(samples[addr_1][15:8]);
+    assign in_1_imag = $signed(samples[addr_1][7:0]);
+    assign in_2_real = $signed(samples[addr_2][15:8]);
+    assign in_2_imag = $signed(samples[addr_2][7:0]);
 
     // Select magnitude block inputs
     assign buff_real = x_real_odd; // Stores complex odd part of x1 and x3, then the x_real value
@@ -121,8 +130,8 @@ module sample_buffer (
     wire signed [9:0] interm_input = (state == CALC_INTERM2) ? ($signed({{2{x_imag_odd[7]}}, x_imag_odd}) - $signed({{2{x_real_odd[7]}}, x_real_odd})) : ($signed({{2{x_real_odd[7]}}, x_real_odd}) + $signed({{2{x_imag_odd[7]}}, x_imag_odd}));
     wire signed [9:0] interm_result = mul_sqrt2_over_2_approx(interm_input);
 
-    wire signed [8:0] odd_r_full = ($signed({samples[1][1][7], samples[1][1]}) + $signed({samples[3][1][7], samples[3][1]})) >>> 1;
-    wire signed [8:0] odd_i_full = ($signed({samples[3][0][7], samples[3][0]}) - $signed({samples[1][0][7], samples[1][0]})) >>> 1;
+    wire signed [8:0] odd_r_full = ($signed({s1_imag[7], s1_imag}) + $signed({s3_imag[7], s3_imag})) >>> 1;
+    wire signed [8:0] odd_i_full = ($signed({s3_real[7], s3_real}) - $signed({s1_real[7], s1_real})) >>> 1;
 
     // Calculated x1 and x3
     wire x3_sel = (mag_index == 3'd3);
@@ -148,8 +157,8 @@ module sample_buffer (
 
                 EXPAND_EVEN_ODD: begin
                     // Set up even/odd for x1 and x3
-                    even[0] <= ($signed({samples[1][0][7], samples[1][0]}) + $signed({samples[3][0][7], samples[3][0]})) >>> 1;
-                    even[1] <= ($signed({samples[1][1][7], samples[1][1]}) - $signed({samples[3][1][7], samples[3][1]})) >>> 1;
+                    even[0] <= ($signed({s1_real[7], s1_real}) + $signed({s3_real[7], s3_real})) >>> 1;
+                    even[1] <= ($signed({s1_imag[7], s1_imag}) - $signed({s3_imag[7], s3_imag})) >>> 1;
                     x_real_odd <= odd_r_full[7:0];
                     x_imag_odd <= odd_i_full[7:0];
                     state <= CALC_INTERM1;
@@ -169,7 +178,7 @@ module sample_buffer (
                 EXPAND_X: begin
                     case(mag_index)
                         3'd0: begin
-                            x_real_odd <= samples[0][0] + samples[0][1]; // a0 + b0
+                            x_real_odd <= s0_real + s0_imag; // a0 + b0
                             x_imag_odd <= 0; // 0
                         end
                         3'd1: begin
@@ -177,15 +186,15 @@ module sample_buffer (
                             x_imag_odd <= x1_x3_imag;
                         end
                         3'd2: begin
-                            x_real_odd <= samples[2][0]; // a2
-                            x_imag_odd <= -samples[2][1]; // -b2
+                            x_real_odd <= s2_real; // a2
+                            x_imag_odd <= -s2_imag; // -b2
                         end
                         3'd3: begin
                             x_real_odd <= x1_x3_real[7:0];
                             x_imag_odd <= x1_x3_imag[7:0];
                         end
                         3'd4: begin
-                            x_real_odd <= samples[0][0] - samples[0][1]; // a0 - b0
+                            x_real_odd <= s0_real - s0_imag; // a0 - b0
                             x_imag_odd <= 0; // 0
                             state <= IDLE;
                         end
