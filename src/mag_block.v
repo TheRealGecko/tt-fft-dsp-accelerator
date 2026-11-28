@@ -30,6 +30,6 @@ module mag_block (
     wire [5:0] mn_3_8  = mn_x3[8:3];
 
     // max 127 + 47 = 174, fits in 8 bits
-    assign magnitude = mx + {2'b0, mn_3_8};
+    assign magnitude = mx + {2'b00, mn[7:2]} + {3'b000, mn[7:3]};
 
 endmodule
