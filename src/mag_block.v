@@ -14,6 +14,8 @@ module mag_block (
 
     input wire clk
 );
+    wire _unused = &{mn_reg[1:0]};
+
     wire [7:0] ax, ay;
 
     assign ax = {1'b0, buff_real[6:0] ^ {7{buff_real[7]}}};      // max 127
