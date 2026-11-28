@@ -74,10 +74,10 @@ module control (
                         if (stage) begin
                             state <= AWAIT_FFT_EXPAND_START;
                         end else begin
-                            stage <= stage ^ 1;
+                            stage <= 1'b1;
                         end
                     end else begin
-                        butterfly <= butterfly ^ 1;
+                        butterfly <= 1'b1;
                     end
                 end
 

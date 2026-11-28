@@ -30,7 +30,7 @@ module sample_buffer (
     input wire butterfly,
     input wire start_fft,
     input wire [2:0] mag_index,
-    output reg expand_ready,
+    output wire expand_ready,
 
     // Control wires
     input wire clk,
@@ -51,6 +51,8 @@ module sample_buffer (
     localparam [2:0] IDLE   = 3'd5;
     reg [2:0] state;
 
+    assign expand_ready = (state == EXPAND_X);
+
     // Sample registers. Only 4 complex numbers needed for 4-point packed FFT
     reg signed [7:0] samples [0:3][0:1];
 
@@ -62,12 +64,6 @@ module sample_buffer (
     reg [1:0] addr_1;
     reg [1:0] addr_2;
 
-    // Select butterfly unit inputs
-    assign in_1_real = samples[addr_1][0];
-    assign in_1_imag = samples[addr_1][1];
-    assign in_2_real = samples[addr_2][0];
-    assign in_2_imag = samples[addr_2][1];
-
     // Select magnitude block inputs
     assign buff_real = x_real;
     assign buff_imag = x_imag;
@@ -77,8 +73,7 @@ module sample_buffer (
     reg signed [8:0] odd [1:0]; // Complex odd part of x1 and x3
     reg signed [9:0] interm1;
     reg signed [9:0] interm2;
-    reg interm_sel;
-    wire signed [9:0] interm_input = interm_sel ? ($signed({odd[1][7], odd[1]}) - $signed({odd[0][7], odd[0]})) : ($signed({odd[0][7], odd[0]}) + $signed({odd[1][7], odd[1]}));
+    wire signed [9:0] interm_input = (state == CALC_INTERM2) ? ($signed({odd[1][7], odd[1]}) - $signed({odd[0][7], odd[0]})) : ($signed({odd[0][7], odd[0]}) + $signed({odd[1][7], odd[1]}));
     wire signed [9:0] interm_result = mul_sqrt2_over_2_approx(interm_input);
 
     // Calculated x1 and x3
@@ -91,7 +86,6 @@ module sample_buffer (
         if(!rst_n) // Reset values
         begin
             state <= IDLE;
-            expand_ready <= 0;
         end 
         else
         begin
@@ -128,13 +122,11 @@ module sample_buffer (
 
                 CALC_INTERM1: begin
                     interm1 <= interm_result;
-                    interm_sel <= 1'b1;
                     state <= CALC_INTERM2;
                 end
 
                 CALC_INTERM2: begin
                     interm2 <= interm_result;
-                    expand_ready <= 1;
                     state <= EXPAND_X;
                 end
 
@@ -165,8 +157,6 @@ module sample_buffer (
                         default: state <= IDLE;
                     endcase
                 end
-
-                IDLE: expand_ready <= 0;
 
                 default: state <= IDLE;
             endcase
@@ -210,4 +200,30 @@ module sample_buffer (
             mul_sqrt2_over_2_approx = product[14:5];
         end
     endfunction
+
+    // Select butterfly unit inputs
+    assign in_1_real = samples[addr_1][0];
+    assign in_1_imag = samples[addr_1][1];
+    // Reduce from 4 mux legs to 3 since addr_2 is never 0
+    reg signed [7:0] in2_r, in2_i;
+    always @(*) begin
+        case (addr_2)
+            2'd1: begin
+                in2_r = samples[1][0];
+                in2_i = samples[1][1];
+            end
+
+            2'd2: begin
+                in2_r = samples[2][0];
+                in2_i = samples[2][1];
+            end
+
+            default: begin
+                in2_r = samples[3][0];
+                in2_i = samples[3][1];
+            end
+        endcase
+    end
+    assign in_2_real = in2_r;
+    assign in_2_imag = in2_i;
 endmodule
